@@ -1,0 +1,857 @@
+from flask import Flask, render_template, request, redirect, url_for, jsonify, send_from_directory, flash, send_file, session,abort
+from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
+from flask_login import UserMixin, login_user, LoginManager, login_required, logout_user
+from flask_wtf import FlaskForm
+from wtforms import StringField, PasswordField, SubmitField
+from wtforms.validators import InputRequired, Length, ValidationError
+from flask_bcrypt import Bcrypt
+import pandas as pd
+import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Spacer, Paragraph, Image,PageBreak
+from reportlab.lib.enums import TA_CENTER
+from werkzeug.utils import secure_filename
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib import colors
+import io
+import uuid
+from base64 import b64encode
+import os
+from datetime import datetime
+
+# Initialize Flask app
+app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///data1.db'
+app.config['SECRET_KEY'] = 'Indi@1947'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
+app.config['ALLOWED_EXTENSIONS'] = {'csv'}
+
+# Flask-Login setup
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = "login"
+
+# Database setup
+db = SQLAlchemy(app)
+bcrypt = Bcrypt(app)
+migrate = Migrate(app, db)
+
+# Upload and result folders
+UPLOAD_FOLDER = 'uploads'
+RESULT_FOLDER = 'static/results'
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(RESULT_FOLDER, exist_ok=True)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['RESULT_FOLDER'] = RESULT_FOLDER
+
+# Database Models
+class User(db.Model, UserMixin):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(20), nullable=False, unique=True)
+    password = db.Column(db.String(80), nullable=False)
+
+class UploadedFile(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    filename = db.Column(db.String(255), nullable=False)
+    filepath = db.Column(db.String(255), nullable=False)
+    uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+# Forms
+class RegisterForm(FlaskForm):
+    username = StringField(validators=[InputRequired(), Length(min=4, max=20)], render_kw={"placeholder": "Username"})
+    password = PasswordField(validators=[InputRequired(), Length(min=4, max=20)], render_kw={"placeholder": "Password"})
+    submit = SubmitField("Register")
+
+    def validate_username(self, username):
+        existing_user = User.query.filter_by(username=username.data).first()
+        if existing_user:
+            raise ValidationError("Username already exists. Please choose a different one.")
+
+class LoginForm(FlaskForm):
+    username = StringField(validators=[InputRequired(), Length(min=4, max=20)], render_kw={"placeholder": "Username"})
+    password = PasswordField(validators=[InputRequired(), Length(min=4, max=20)], render_kw={"placeholder": "Password"})
+    submit = SubmitField("Login")
+
+# Flask-Login user loader
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+# Routes
+@app.route('/')
+def home():
+    return render_template('home.html')
+
+@app.route('/index')
+@login_required
+def index():
+    return render_template('index.html')
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    form = LoginForm()
+    if form.validate_on_submit():
+        user = User.query.filter_by(username=form.username.data).first()
+        if user and bcrypt.check_password_hash(user.password, form.password.data):
+            login_user(user)
+            return redirect(url_for('index'))
+        else:
+            flash('Incorrect username or password', 'danger')
+    return render_template('login.html', form=form)
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    form = RegisterForm()
+    if form.validate_on_submit():
+        hashed_password = bcrypt.generate_password_hash(form.password.data)
+        new_user = User(username=form.username.data, password=hashed_password)
+        db.session.add(new_user)
+        db.session.commit()
+        return redirect(url_for('login'))
+    return render_template('register.html', form=form)
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for('login'))
+
+@app.route('/validate_data', methods=['POST'])
+def validate_data():
+    files = request.files
+    uploaded_files = {}
+
+    for file_key in files:
+        file = files[file_key]
+        if file and file.filename.endswith('.csv'):
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
+            file.save(file_path)
+            uploaded_files[file_key] = file_path
+
+    if not uploaded_files:
+        return jsonify({"status": "error", "message": "No valid CSV files uploaded"})
+
+    # Basic validation: Check if all required files are uploaded
+    required_files = ['l_file', 's_file', 'c_file', 'h_file', 'i_file']
+    for file in required_files:
+        if file not in uploaded_files:
+            return jsonify({"status": "error", "message": f"Missing required file: {file}"})
+
+    return jsonify({"status": "success", "message": "Files uploaded and validated successfully"})
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
+
+@app.route('/results', methods=['POST'])
+def results():
+    files = {
+        "land": request.files.get("l_file"),
+        "sales": request.files.get("s_file"),
+        "current": request.files.get("c_file"),
+        "historical": request.files.get("h_file"),
+        "improvement": request.files.get("i_file"),
+    }
+
+    # Get month filters from the form
+    month_filters = {
+        "RESIDENTIAL": int(request.form.get("res", 0)),  # Default to 0 if not provided
+        "COMMERCIAL": int(request.form.get("com", 0)),
+        "VACANT LAND": int(request.form.get("vl", 0)),
+    }
+
+    file_paths = {}
+    for key, file in files.items():
+        if file and file.filename.endswith(".csv"):
+            file_path = os.path.join(UPLOAD_FOLDER, file.filename)
+            file.save(file_path)
+            file_paths[key] = file_path
+
+    # Process the data with month filters
+    df_sales, df_current_value = process_data(file_paths, month_filters)
+
+    # Generate a unique file ID and save both DataFrames
+    file_id = str(uuid.uuid4())
+    sales_file_path = os.path.join(app.config['UPLOAD_FOLDER'], f"{file_id}.json")
+    current_file_path = os.path.join(app.config['UPLOAD_FOLDER'], f"current_{file_id}.json")
+    
+    df_sales.to_json(sales_file_path, orient='split')
+    df_current_value.to_json(current_file_path, orient='split')
+
+    # Generate PDF report with month filters
+    pdf_path = os.path.join(app.config['UPLOAD_FOLDER'], f"{file_id}.pdf")
+    generate_pdf_report(file_id, month_filters)
+
+    return redirect(url_for('report', file_id=file_id))
+
+def assign_usetype(abstrprd):
+    if 0 <= abstrprd <= 999:
+        return 'VACANT LAND'
+    elif 1000 <= abstrprd <= 1999:
+        return 'RESIDENTIAL'
+    elif 2000 <= abstrprd <= 2999:
+        return 'COMMERCIAL'
+    elif 3000 <= abstrprd <= 3999:
+        return 'INDUSTRIAL'
+    elif 4000 <= abstrprd <= 4999:
+        return 'AGRICULTURE'
+    elif 9000 <= abstrprd <= 9999:
+        return 'EXEMPT'
+    return 'OTHER'
+
+def process_data(file_paths, month_filters):
+    try:
+        # Step 1: Load datasets
+        df_land = pd.read_csv(file_paths['land'])
+        df_sales = pd.read_csv(file_paths['sales'])
+        df_current_value = pd.read_csv(file_paths['current'])
+        df_historical = pd.read_csv(file_paths['historical'])
+
+        if 'ABSTRLND' in df_land.columns:
+            df_land.rename(columns={'ABSTRLND': 'ABSTRPRD'}, inplace=True)
+
+        # Steps 2-6: Duplicate and mismatch removal (unchanged)
+        duplicates = df_land[df_land.duplicated('PARCEL', keep=False)]
+        array1 = duplicates['PARCEL'].unique()
+        df_sales = df_sales[~df_sales['PARCEL'].isin(array1)]
+        df_land = df_land[~df_land['PARCEL'].isin(array1)]
+
+        mismatched_parcels = df_sales.merge(df_land[['PARCEL', 'ABSTRPRD']], on='PARCEL', how='left')
+        mismatched_parcels = mismatched_parcels[mismatched_parcels['ABSTRPRD_x'] != mismatched_parcels['ABSTRPRD_y']]
+        array2 = mismatched_parcels['PARCEL'].unique()
+        df_sales = df_sales[~df_sales['PARCEL'].isin(array2)]
+        df_land = df_land[~df_land['PARCEL'].isin(array2)]
+
+        # Steps 7-11: Merging and computations (unchanged)
+        df_current_value = df_current_value.merge(df_land[['PARCEL', 'ABSTRPRD']], on='PARCEL', how='left', suffixes=('', '_land'))
+        df_current_value = df_current_value.merge(df_historical[['PARCEL', 'PREVTOT']], on='PARCEL', how='left', suffixes=('', '_hist'))
+        df_current_value['CURRTOT'] = df_current_value.get('CURRTOT', 0)
+        df_current_value['PREVTOT'] = df_current_value.get('PREVTOT', 0)
+        df_current_value[['CURRTOT', 'PREVTOT']] = df_current_value[['CURRTOT', 'PREVTOT']].fillna(0)
+        df_current_value['PCTCHANGE'] = np.where(
+            df_current_value['PREVTOT'] == 0, 0,
+            ((df_current_value['CURRTOT'] - df_current_value['PREVTOT']) / df_current_value['PREVTOT'])
+        )
+        df_current_value['PCTCHANGE'] = df_current_value['PCTCHANGE'].round(4)
+
+        df_sales = df_sales.merge(df_current_value[['PARCEL', 'CURRTOT', 'PCTCHANGE']], on='PARCEL', how='left', suffixes=('', '_cv'))
+        df_sales['RATIO'] = np.where(
+            df_sales['TASP'] == 0, 0,
+            df_sales['CURRTOT'] / df_sales['TASP']
+        )
+        df_sales['RATIO'] = df_sales['RATIO'].round(2)
+
+        # Assign USETYPE and initial filtering
+        df_sales['USETYPE'] = df_sales['ABSTRPRD'].apply(assign_usetype)
+        df_sales = df_sales[df_sales['USETYPE'].isin(['RESIDENTIAL', 'COMMERCIAL', 'VACANT LAND'])]
+        df_sales = df_sales[df_sales['QUALIFIED'] == 'Q']
+
+        # Reorder USETYPE
+        df_sales = df_sales.sort_values(by='USETYPE', key=lambda x: x.map({'RESIDENTIAL': 0, 'COMMERCIAL': 1, 'VACANT LAND': 2}))
+
+        # Calculate MONTHS based on SYEAR (and SMONTH if available)
+        base_year = df_sales['SYEAR'].max()  # Use the most recent year as the base
+        if 'SMONTH' in df_sales.columns:
+            base_month = df_sales.loc[df_sales['SYEAR'] == base_year, 'SMONTH'].max()
+            df_sales['MONTHS'] = ((base_year - df_sales['SYEAR']) * 12) + (base_month - df_sales['SMONTH'])
+        else:
+            df_sales['MONTHS'] = (base_year - df_sales['SYEAR']) * 12  # Fallback to year-only
+
+        # Normalize MONTHS to ensure the range is 0 to 60
+        # max_months = df_sales['MONTHS'].max()
+        # df_sales['MONTHS'] = (df_sales['MONTHS'] / max_months) * 60  # Scale to 0-60
+
+         # Step 8: Filter latest months based on input
+        filtered_data = pd.DataFrame()
+        for usetype, max_months in month_filters.items():
+            usetype_data = df_sales[df_sales['USETYPE'] == usetype]
+            usetype_data_filtered = usetype_data[usetype_data['MONTHS'] <= max_months]
+            filtered_data = pd.concat([filtered_data, usetype_data_filtered])
+        
+        df_sales = filtered_data
+
+      
+
+        # Ensure all required columns exist
+        required_columns = ['SYEAR', 'RATIO', 'CURRTOT', 'TASP', 'PCTCHANGE', 'USETYPE', 'MONTHS']
+        for col in required_columns:
+            if col not in df_sales.columns:
+                df_sales[col] = 0
+
+        print(df_sales.head())  # Debugging
+        return df_sales, df_current_value
+    except Exception as e:
+        print(f"Error processing data: {e}")
+        return pd.DataFrame(), pd.DataFrame()
+            
+def compute_statistics(group):
+    return {
+        'SYEAR': group['SYEAR'].iloc[0],
+        'Median Ratio': round(group['RATIO'].median(), 2),
+        'COD': round(((group['RATIO'] - group['RATIO'].median()).abs().mean() / group['RATIO'].median()) * 100, 2),
+        'N': len(group),
+        'Mean Ratio': round(group['RATIO'].mean(), 2),
+        'Weighted Mean Ratio': round(group['CURRTOT'].sum() / group['TASP'].sum(), 2),
+        'PRD': round(group['RATIO'].mean() / (group['CURRTOT'].sum() / group['TASP'].sum()), 2),
+    }
+
+def compute_pctchange_stats(group):
+    return {
+        'SYEAR': group['SYEAR'].iloc[0],
+        'N': len(group),
+        'Mean': round(group['PCTCHANGE'].mean(), 4),
+        'Median': round(group['PCTCHANGE'].median(), 4),
+        'Min': round(group['PCTCHANGE'].min(), 4),
+        'Max': round(group['PCTCHANGE'].max(), 4)
+    }
+
+def compute_pctchange_stats_nonsold(group):
+    return {
+        'N': len(group),
+        'Mean': round(group['PCTCHANGE'].mean(), 4),
+        'Median': round(group['PCTCHANGE'].median(), 4),
+        'Min': round(group['PCTCHANGE'].min(), 4),
+        'Max': round(group['PCTCHANGE'].max(), 4)
+    }
+
+# Function to calculate the total row for table1_data
+def calculate_total_table1(data):
+    total_N = 0
+    total_Median_Ratio = 0
+    total_COD = 0
+    total_Mean_Ratio = 0
+    total_Weighted_Mean_Ratio = 0
+    total_PRD = 0
+    count = len(data) - 1  # Subtract 1 to exclude the header row
+
+    for row in data[1:]:  # Skip the header row
+        total_N += row[3]  # N is at index 3
+        total_Median_Ratio += row[1]  # Median Ratio is at index 1
+        total_COD += row[2]  # COD is at index 2
+        total_Mean_Ratio += row[4]  # Mean Ratio is at index 4
+        total_Weighted_Mean_Ratio += row[5]  # Weighted Mean Ratio is at index 5
+        total_PRD += row[6]  # PRD is at index 6
+
+    # Calculate averages and round to 2-3 decimal places
+    avg_Median_Ratio = round(total_Median_Ratio / count, 3)
+    avg_COD = round(total_COD / count, 3)
+    avg_Mean_Ratio = round(total_Mean_Ratio / count, 3)
+    avg_Weighted_Mean_Ratio = round(total_Weighted_Mean_Ratio / count, 3)
+    avg_PRD = round(total_PRD / count, 3)
+
+    # Return the total row
+    return ["Total", avg_Median_Ratio, avg_COD, total_N, avg_Mean_Ratio, avg_Weighted_Mean_Ratio, avg_PRD]
+
+# Function to calculate the total row for table2_data
+def calculate_total_table2(data):
+    total_N = 0
+    total_Mean = 0
+    total_Median = 0
+    total_Min = 0
+    total_Max = 0
+    count = len(data) - 1  # Subtract 1 to exclude the header row
+
+    for row in data[1:]:  # Skip the header row
+        total_N += row[1]  # N is at index 1
+        total_Mean += row[2]  # Mean is at index 2
+        total_Median += row[3]  # Median is at index 3
+        total_Min += row[4]  # Min is at index 4
+        total_Max += row[5]  # Max is at index 5
+
+    # Calculate averages and round to 2-3 decimal places
+    avg_Mean = round(total_Mean / count, 3)
+    avg_Median = round(total_Median / count, 3)
+    avg_Min = round(total_Min / count, 3)
+    avg_Max = round(total_Max / count, 3)
+
+    # Return the total row
+    return ["Total", total_N, avg_Mean, avg_Median, avg_Min, avg_Max]
+
+def generate_pdf_report(file_id, month_filters):
+    pdf_path = os.path.join("static", f"report_{file_id}.pdf")
+    doc = SimpleDocTemplate(pdf_path, pagesize=letter)
+    elements = []
+    styles = getSampleStyleSheet()
+
+    # Add title to the PDF
+    elements.append(Paragraph("Audit Report", styles["Title"]))
+    elements.append(Spacer(1, 12))
+
+    # Load sales data
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], f"{file_id}.json")
+    if not os.path.exists(file_path):
+        return "Data file not found."
+    df_sales = pd.read_json(file_path, orient='split')
+
+    # Load current value data
+    current_file_path = os.path.join(app.config['UPLOAD_FOLDER'], f"current_{file_id}.json")
+    if not os.path.exists(current_file_path):
+        return "Current value file not found."
+    df_current_value = pd.read_json(current_file_path, orient='split')
+
+    # Compute tables with filtered data
+    usetypes = df_sales['USETYPE'].unique()
+    table1_data = {usetype: [compute_statistics(group) for _, group in df_sales[df_sales['USETYPE'] == usetype].groupby('SYEAR')] for usetype in usetypes}
+
+    # Compute totals for table1_data (Ratios Table)
+    table1_totals = {}
+    for usetype in usetypes:
+        rows = table1_data[usetype]
+        total_n = sum(row['N'] for row in rows)
+        total_median_ratio = sum(row['Median Ratio'] for row in rows) / len(rows) if rows else 0
+        total_cod = sum(row['COD'] for row in rows) / len(rows) if rows else 0
+        total_mean_ratio = sum(row['Mean Ratio'] for row in rows) / len(rows) if rows else 0
+        total_weighted_mean_ratio = sum(row['Weighted Mean Ratio'] for row in rows) / len(rows) if rows else 0
+        total_prd = sum(row['PRD'] for row in rows) / len(rows) if rows else 0
+        table1_totals[usetype] = {
+            'SYEAR': 'Total',
+            'N': total_n,
+            'Median Ratio': round(total_median_ratio, 2),
+            'COD': round(total_cod, 2),
+            'Mean Ratio': round(total_mean_ratio, 2),
+            'Weighted Mean Ratio': round(total_weighted_mean_ratio, 2),
+            'PRD': round(total_prd, 2)
+        }
+
+    # Compute PCT Change Table without grouping by SYEAR
+    table2_data = {}
+    for usetype in usetypes:
+        filtered_data = df_sales[df_sales['USETYPE'] == usetype]
+        total_n = len(filtered_data)
+        total_mean = filtered_data['PCTCHANGE'].mean()
+        total_median = filtered_data['PCTCHANGE'].median()
+        total_min = filtered_data['PCTCHANGE'].min()
+        total_max = filtered_data['PCTCHANGE'].max()
+        table2_data[usetype] = {
+            'USETYPE': usetype,
+            'N': total_n,
+            'Mean': round(total_mean, 4),
+            'Median': round(total_median, 4),
+            'Min': round(total_min, 4),
+            'Max': round(total_max, 4)
+        }
+
+    # Non-sold properties
+    sold_parcels = df_sales['PARCEL'].unique()
+    df_non_sold = df_current_value[~df_current_value['PARCEL'].isin(sold_parcels)].copy()
+    df_non_sold['USETYPE'] = df_non_sold['ABSTRPRD'].apply(assign_usetype)
+    df_non_sold = df_non_sold[df_non_sold['USETYPE'].isin(['RESIDENTIAL', 'COMMERCIAL', 'VACANT LAND'])]
+    summary_data = df_non_sold.groupby('USETYPE')['PCTCHANGE'].agg(['count', 'mean', 'median', 'min', 'max']).reset_index().round(4).to_dict('records')
+
+    # Combine table2_data and summary_data
+    combined_data = {}
+    for usetype in usetypes:
+        combined_data[usetype] = []
+
+        # Add Sold data (from table2_data)
+        sold_row = table2_data[usetype].copy()
+        sold_row['Type'] = 'Sold'
+        combined_data[usetype].append(sold_row)
+
+        # Add Unsold data (from summary_data)
+        for row in summary_data:
+            if row['USETYPE'] == usetype:
+                unsold_row = row.copy()
+                unsold_row['Type'] = 'Unsold'
+                combined_data[usetype].append(unsold_row)
+
+    # Generate scatter plots
+    colors_map = {'RESIDENTIAL': 'green', 'COMMERCIAL': 'red', 'VACANT LAND': 'blue'}
+    os.makedirs("static", exist_ok=True)
+    scatter_plots = {}
+    for usetype in usetypes:
+        filtered_data = df_sales[df_sales['USETYPE'] == usetype]
+        max_months = filtered_data['MONTHS'].max()
+        plot_path = os.path.join("static", f"{usetype}_scatter.png")
+        plt.figure(figsize=(6, 4))
+        plt.scatter(filtered_data['MONTHS'], filtered_data['RATIO'], alpha=0.5, color=colors_map.get(usetype, 'black'), marker='x', s=20)
+        plt.axhline(y=1, color='red', linestyle='-', linewidth=1, label='Ratio = 1')
+        plt.xlabel('Months')
+        plt.ylabel('Ratio')
+        plt.ylim(0, 3)
+        plt.xlim(max_months, 0)
+        plt.title(f'Scatter Plot for {usetype}')
+        plt.savefig(plot_path)
+        plt.close()
+        scatter_plots[usetype] = plot_path  # Store the absolute path
+
+    # Add content to PDF
+    for usetype in usetypes:
+        # Ratios Table
+        elements.append(Paragraph(f"Ratios Table for {usetype}", styles["Heading2"]))
+        elements.append(Spacer(1, 6))
+
+        data = [["SYEAR", "Median Ratio", "COD", "N", "Mean Ratio", "Weighted Mean Ratio", "PRD"]]
+        for row in table1_data[usetype]:
+            data.append([row['SYEAR'], row['Median Ratio'], row['COD'], row['N'], 
+                         row['Mean Ratio'], row['Weighted Mean Ratio'], row['PRD']])
+        data.append([table1_totals[usetype]['SYEAR'], table1_totals[usetype]['Median Ratio'], 
+                     table1_totals[usetype]['COD'], table1_totals[usetype]['N'], 
+                     table1_totals[usetype]['Mean Ratio'], table1_totals[usetype]['Weighted Mean Ratio'], 
+                     table1_totals[usetype]['PRD']])
+
+        table = Table(data, colWidths=[70, 90, 60, 60, 90, 120, 60])
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#4a5568")),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('BOX', (0, 0), (-1, -1), 1, colors.black),
+            ('BACKGROUND', (0, 1), (-1, -2), colors.HexColor("#f7fafc")),
+            ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor("#cbd5e0")),
+        ]))
+        elements.append(table)
+        elements.append(Spacer(1, 12))
+
+        # Combined PCT Change and Unsold Properties Table
+        elements.append(Paragraph(f"Percentage Change and Market Value for {usetype}", styles["Heading2"]))
+        elements.append(Spacer(1, 6))
+
+        data2 = [["Type", "N", "Mean", "Median", "Min", "Max"]]
+        for row in combined_data[usetype]:
+            data2.append([row['Type'], row['N'] if 'N' in row else row['count'], 
+                          row['Mean'] if 'Mean' in row else row['mean'], 
+                          row['Median'] if 'Median' in row else row['median'], 
+                          row['Min'] if 'Min' in row else row['min'], 
+                          row['Max'] if 'Max' in row else row['max']])
+
+        table2 = Table(data2, colWidths=[80, 60, 80, 80, 80, 80])
+        table2.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#4a5568")),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('BOX', (0, 0), (-1, -1), 1, colors.black),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor("#f7fafc")),
+        ]))
+        elements.append(table2)
+        elements.append(Spacer(1, 12))
+
+        # Scatter Plot
+        elements.append(Paragraph(f"Scatter Plot for {usetype}", styles["Heading2"]))
+        elements.append(Spacer(1, 6))
+        if os.path.exists(scatter_plots[usetype]):
+            elements.append(Image(scatter_plots[usetype], width=300, height=250))
+        elements.append(Spacer(1, 12))
+
+        # Add page break after each USETYPE section
+        elements.append(PageBreak())
+
+    # Build the PDF
+    doc.build(elements)
+    return pdf_path
+
+
+@app.route('/report/<string:file_id>')
+def report(file_id):
+    if not file_id:
+        return "No data found. Please process the data first.", 400
+
+    # Load sales data
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], f"{file_id}.json")
+    if not os.path.exists(file_path):
+        return "Data file not found.", 404
+    df_sales = pd.read_json(file_path, orient='split')
+
+    # Load current value data
+    current_file_path = os.path.join(app.config['UPLOAD_FOLDER'], f"current_{file_id}.json")
+    if not os.path.exists(current_file_path):
+        return "Current value file not found.", 404
+    df_current_value = pd.read_json(current_file_path, orient='split')
+
+    # Compute tables with filtered data
+    usetypes = df_sales['USETYPE'].unique()
+    table1_data = {usetype: [compute_statistics(group) for _, group in df_sales[df_sales['USETYPE'] == usetype].groupby('SYEAR')] for usetype in usetypes}
+
+    # Compute totals for table1_data (Ratios Table)
+    table1_totals = {}
+    for usetype in usetypes:
+        rows = table1_data[usetype]
+        total_n = sum(row['N'] for row in rows)
+        total_median_ratio = sum(row['Median Ratio'] for row in rows) / len(rows) if rows else 0
+        total_cod = sum(row['COD'] for row in rows) / len(rows) if rows else 0
+        total_mean_ratio = sum(row['Mean Ratio'] for row in rows) / len(rows) if rows else 0
+        total_weighted_mean_ratio = sum(row['Weighted Mean Ratio'] for row in rows) / len(rows) if rows else 0
+        total_prd = sum(row['PRD'] for row in rows) / len(rows) if rows else 0
+        table1_totals[usetype] = {
+            'SYEAR': 'Total',
+            'N': total_n,
+            'Median Ratio': round(total_median_ratio, 2),
+            'COD': round(total_cod, 2),
+            'Mean Ratio': round(total_mean_ratio, 2),
+            'Weighted Mean Ratio': round(total_weighted_mean_ratio, 2),
+            'PRD': round(total_prd, 2)
+        }
+
+    # Compute PCT Change Table without grouping by SYEAR
+    table2_data = {}
+    for usetype in usetypes:
+        filtered_data = df_sales[df_sales['USETYPE'] == usetype]
+        total_n = len(filtered_data)
+        total_mean = filtered_data['PCTCHANGE'].mean()
+        total_median = filtered_data['PCTCHANGE'].median()
+        total_min = filtered_data['PCTCHANGE'].min()
+        total_max = filtered_data['PCTCHANGE'].max()
+        table2_data[usetype] = {
+            'SYEAR': 'Total',
+            'USETYPE': usetype,
+            'N': total_n,
+            'Mean': round(total_mean, 4),
+            'Median': round(total_median, 4),
+            'Min': round(total_min, 4),
+            'Max': round(total_max, 4)
+        }
+
+    # Non-sold properties
+    sold_parcels = df_sales['PARCEL'].unique()
+    df_non_sold = df_current_value[~df_current_value['PARCEL'].isin(sold_parcels)].copy()
+    df_non_sold['USETYPE'] = df_non_sold['ABSTRPRD'].apply(assign_usetype)
+    df_non_sold = df_non_sold[df_non_sold['USETYPE'].isin(['RESIDENTIAL', 'COMMERCIAL', 'VACANT LAND'])]
+    summary_data = df_non_sold.groupby('USETYPE')['PCTCHANGE'].agg(['count', 'mean', 'median', 'min', 'max']).reset_index().round(4).to_dict('records')
+
+    # Combine table2_data and summary_data
+    combined_data = {}
+    for usetype in usetypes:
+        combined_data[usetype] = []
+
+        # Add Sold data (from table2_data)
+        sold_row = table2_data[usetype].copy()
+        sold_row['Type'] = 'Sold'
+        combined_data[usetype].append(sold_row)
+
+        # Add Unsold data (from summary_data)
+        for row in summary_data:
+            if row['USETYPE'] == usetype:
+                unsold_row = row.copy()
+                unsold_row['Type'] = 'Unsold'
+                combined_data[usetype].append(unsold_row)
+
+    # Generate scatter plots
+    colors_map = {'RESIDENTIAL': 'green', 'COMMERCIAL': 'red', 'VACANT LAND': 'blue'}
+    os.makedirs("static", exist_ok=True)
+    scatter_plots = {}
+    for usetype in usetypes:
+        filtered_data = df_sales[df_sales['USETYPE'] == usetype]
+        max_months = filtered_data['MONTHS'].max()
+        plot_path = os.path.join("static", f"{usetype}_scatter.png")
+        plt.figure(figsize=(6, 4))
+        plt.scatter(filtered_data['MONTHS'], filtered_data['RATIO'], alpha=0.5, color=colors_map.get(usetype, 'black'), marker='x', s=20)
+        plt.axhline(y=1, color='red', linestyle='-', linewidth=1, label='Ratio = 1')
+        plt.xlabel('Months')
+        plt.ylabel('Ratio')
+        plt.ylim(0, 3)
+        plt.xlim(max_months, 0)
+        plt.title(f'Scatter Plot for {usetype}')
+        plt.savefig(plot_path)
+        plt.close()
+        scatter_plots[usetype] = f"/static/{usetype}_scatter.png"
+
+    return render_template('report.html', 
+                          usetypes=usetypes, 
+                          table1_data=table1_data, 
+                          table1_totals=table1_totals, 
+                          combined_data=combined_data, 
+                          scatter_plots=scatter_plots, 
+                          download_link=f"/download_pdf?file_id={file_id}")
+
+
+@app.route('/download_pdf')
+def download_pdf():
+    file_id = request.args.get('file_id')
+    if not file_id:
+        return "No file ID provided.", 400
+
+    pdf_path = os.path.join("static", f"report_{file_id}.pdf")
+    if not os.path.exists(pdf_path):
+        return abort(404, description="Requested PDF file not found.")
+
+    return send_file(pdf_path, as_attachment=True)
+
+if __name__ == '__main__':
+    with app.app_context():
+        db.create_all()
+    app.run(debug=True)
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Property Report</title>
+    <style>
+       body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f6f5; /* Soft off-white background */
+            color: #333;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 {
+            color: #4a5568; /* Dark gray */
+            text-align: center;
+            margin-top: 20px;
+        }
+        h2 {
+            color: #2d3748; /* Darker gray */
+            text-align: center;
+            margin-top: 30px;
+        }
+        table {
+            border-collapse: collapse;
+            width: 80%;
+            margin: 20px auto;
+            background-color: #fff; /* White table background */
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+        }
+        th, td {
+            border: 1px solid #d1d5db; /* Light gray border */
+            padding: 12px;
+            text-align: center;
+        }
+        th {
+            background-color: #4a5568; /* Dark gray */
+            color: #fff; /* White text for contrast */
+        }
+        tr:nth-child(even) {
+            background-color: #f7fafc; /* Very light pastel blue */
+        }
+        tr:nth-child(odd) {
+            background-color: #edf2f7; /* Very light pastel gray */
+        }
+        .total-row {
+            font-weight: bold;
+            background-color: #cbd5e0; /* Soft pastel gray for totals */
+            color: #2d3748; /* Darker gray text for contrast */
+        }
+        img {
+            max-width: 600px;
+            margin: 20px auto;
+            display: block;
+            border: 1px solid #d1d5db; /* Light gray border */
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+        }
+        .button-container {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px; /* Space between buttons */
+        }
+        .download-btn, .logout-btn {
+            display: inline-block;
+            padding: 10px 20px;
+            color: #fff;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            transition: background-color 0.3s ease;
+        }
+        .download-btn {
+            background-color: #4a5568; /* Dark gray */
+        }
+        .download-btn:hover {
+            background-color: #2d3748; /* Slightly darker gray */
+        }
+        .logout-btn {
+            background-color: #e53e3e; /* Red for logout */
+        }
+        .logout-btn:hover {
+            background-color: #c53030; /* Slightly darker red */
+        }
+        .section-container {
+            width: 80%;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+    </style>
+</head>
+<body>
+    <!-- Button Container at Top Right -->
+    <div class="button-container">
+        <a href="{{ download_link }}" class="download-btn">Download PDF Report</a>
+        <a href="{{url_for('logout')}}" class="logout-btn">Logout</a>
+    </div>
+
+    <h1>Audit Report</h1>
+
+    {% for usetype in usetypes %}
+        <div class="section-container">
+            <!-- i) Ratios Table -->
+            <h2>Ratios Table for {{ usetype }}</h2>
+            <table>
+                <tr>
+                    <th>Year</th>
+                    <th>Median Ratio</th>
+                    <th>COD</th>
+                    <th>N</th>
+                    <th>Mean Ratio</th>
+                    <th>Weighted Mean Ratio</th>
+                    <th>PRD</th>
+                </tr>
+                {% for row in table1_data[usetype] %}
+                <tr>
+                    <td>{{ row['SYEAR'] }}</td>
+                    <td>{{ row['Median Ratio'] }}</td>
+                    <td>{{ row['COD'] }}</td>
+                    <td>{{ row['N'] }}</td>
+                    <td>{{ row['Mean Ratio'] }}</td>
+                    <td>{{ row['Weighted Mean Ratio'] }}</td>
+                    <td>{{ row['PRD'] }}</td>
+                </tr>
+                {% endfor %}
+                <!-- Total Row for Ratios Table -->
+                <tr class="total-row">
+                    <td>{{ table1_totals[usetype]['SYEAR'] }}</td>
+                    <td>{{ table1_totals[usetype]['Median Ratio'] }}</td>
+                    <td>{{ table1_totals[usetype]['COD'] }}</td>
+                    <td>{{ table1_totals[usetype]['N'] }}</td>
+                    <td>{{ table1_totals[usetype]['Mean Ratio'] }}</td>
+                    <td>{{ table1_totals[usetype]['Weighted Mean Ratio'] }}</td>
+                    <td>{{ table1_totals[usetype]['PRD'] }}</td>
+                </tr>
+            </table>
+
+            <!-- ii) Combined PCT Change and Unsold Properties Table -->
+            <h2>Percentage Change and Market Value for {{ usetype }}</h2>
+            <table>
+                <tr>
+                    <th>Type</th>
+                    <th>N</th>
+                    <th>Mean</th>
+                    <th>Median</th>
+                    <th>Min</th>
+                    <th>Max</th>
+                </tr>
+                {% for row in combined_data[usetype] %}
+                <tr>
+                    <td>{{ row['Type'] }}</td>
+                    <td>{{ row['N'] if 'N' in row else row['count'] }}</td>
+                    <td>{{ row['Mean'] if 'Mean' in row else row['mean'] }}</td>
+                    <td>{{ row['Median'] if 'Median' in row else row['median'] }}</td>
+                    <td>{{ row['Min'] if 'Min' in row else row['min'] }}</td>
+                    <td>{{ row['Max'] if 'Max' in row else row['max'] }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+
+            <!-- iii) Scatter Plot Graph -->
+            <h2>Scatter Plot Graph for {{ usetype }}</h2>
+            <img src="{{ scatter_plots[usetype] }}" alt="Scatter Plot for {{ usetype }}">
+        </div>
+    {% endfor %}
+</body>
+</html>

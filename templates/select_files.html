@@ -1,0 +1,9 @@
+<form method="POST" action="/results">
+    <label for="files">Select files to process:</label>
+    <select name="files" id="files" multiple>
+        {% for file in available_files %}
+            <option value="{{ file }}">{{ file }}</option>
+        {% endfor %}
+    </select>
+    <button type="submit">Submit</button>
+</form>

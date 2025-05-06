@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Property Audit Report</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            color: #212529;
+        }
+        .report-header {
+            background-color: #343a40;
+            color: white;
+            padding: 20px 0;
+            margin-bottom: 30px;
+            border-radius: 0 0 10px 10px;
+        }
+        .download-btn {
+            background-color: #28a745;
+            border-color: #28a745;
+        }
+        .logout-btn {
+            background-color: #dc3545;
+            border-color: #dc3545;
+        }
+        .nav-tabs .nav-link {
+            color: #495057;
+            font-weight: 500;
+        }
+        .nav-tabs .nav-link.active {
+            color: #0d6efd;
+            font-weight: 600;
+        }
+        .accordion-button:not(.collapsed) {
+            background-color: rgba(13, 110, 253, 0.1);
+            color: #0d6efd;
+        }
+        .table th {
+            background-color: #343a40;
+            color: white;
+        }
+        .total-row {
+            background-color: #e9ecef;
+            font-weight: bold;
+        }
+        .plot-container {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.05);
+        }
+        img.plot-image {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+        }
+        .section-title {
+            color: #0d6efd;
+            margin-top: 25px;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #dee2e6;
+        }
+    </style>
+</head>
+<body>
+    <div class="report-header">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h1 class="mb-0">Audit Report</h1>
+                </div>
+                <div class="col-md-4 text-end">
+                    <a href="{{ download_link }}" class="btn download-btn btn-sm me-2">
+                        <i class="bi bi-download"></i> Download PDF
+                    </a>
+                    <a href="{{ url_for('logout') }}" class="btn logout-btn btn-sm">
+                        <i class="bi bi-box-arrow-right"></i> Logout
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container mb-5">
+        <!-- Main Tabs Navigation -->
+        <ul class="nav nav-tabs mb-4" id="reportTabs" role="tablist">
+            {% if 'RESIDENTIAL' in usetypes %}
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="residential-tab" data-bs-toggle="tab" data-bs-target="#residential" type="button" role="tab" aria-controls="residential" aria-selected="{% if 'COMMERCIAL' not in usetypes %}true{% else %}false{% endif %}">
+                    Residential
+                </button>
+            </li>
+            {% endif %}
+            {% if 'COMMERCIAL' in usetypes %}
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="commercial-tab" data-bs-toggle="tab" data-bs-target="#commercial" type="button" role="tab" aria-controls="commercial" aria-selected="true">
+                    Commercial
+                </button>
+            </li>
+            {% endif %}
+            {% if 'VACANT LAND' in usetypes %}
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="vacant-land-tab" data-bs-toggle="tab" data-bs-target="#vacant-land" type="button" role="tab" aria-controls="vacant-land" aria-selected="false">
+                    Vacant Land
+                </button>
+            </li>
+            {% endif %}
+        </ul>
+
+        <!-- Tab Content -->
+        <div class="tab-content" id="reportTabsContent">
+            <!-- Commercial Tab -->
+            {% if 'COMMERCIAL' in usetypes %}
+            <div class="tab-pane fade show active" id="commercial" role="tabpanel" aria-labelledby="commercial-tab">
+                <div class="accordion" id="commercialAccordion">
+                    <!-- Ratios Table Section -->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="commercialRatiosHeading">
+                            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#commercialRatiosCollapse" aria-expanded="true" aria-controls="commercialRatiosCollapse">
+                                <i class="bi bi-table me-2"></i> Sales Ratio Statistics
+                            </button>
+                        </h2>
+                        <div id="commercialRatiosCollapse" class="accordion-collapse collapse show" aria-labelledby="commercialRatiosHeading" data-bs-parent="#commercialAccordion">
+                            <div class="accordion-body">
+                                <div class="table-responsive">
+                                    <table class="table table-bordered table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Year</th>
+                                                <th>N</th>
+                                                <th>Mean Ratio</th>
+                                                <th>Median Ratio</th>
+                                                <th>Weighted Mean</th>
+                                                <th>COD</th>
+                                                <th>PRD</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for row in table1_data['COMMERCIAL'] %}
+                                            <tr>
+                                                <td>{{ row['SYEAR'] }}</td>
+                                                <td>{{ row['N'] }}</td>
+                                                <td>{{ row['Mean Ratio'] }}</td>
+                                                <td>{{ row['Median Ratio'] }}</td>
+                                                <td>{{ row['Weighted Mean Ratio'] }}</td>
+                                                <td>{{ row['COD'] }}</td>
+                                                <td>{{ row['PRD'] }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                            <tr class="total-row">
+                                                <td><strong>{{ table1_totals['COMMERCIAL']['SYEAR'] }}</strong></td>
+                                                <td><strong>{{ table1_totals['COMMERCIAL']['N'] }}</strong></td>
+                                                <td><strong>{{ table1_totals['COMMERCIAL']['Mean Ratio'] }}</strong></td>
+                                                <td><strong>{{ table1_totals['COMMERCIAL']['Median Ratio'] }}</strong></td>
+                                                <td><strong>{{ table1_totals['COMMERCIAL']['Weighted Mean Ratio'] }}</strong></td>
+                                                <td><strong>{{ table1_totals['COMMERCIAL']['COD'] }}</strong></td>
+                                                <td><strong>{{ table1_totals['COMMERCIAL']['PRD'] }}</strong></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Market Value Changes Section -->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="commercialMarketValueHeading">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#commercialMarketValueCollapse" aria-expanded="false" aria-controls="commercialMarketValueCollapse">
+                                <i class="bi bi-graph-up me-2"></i> Market Value Analysis
+                            </button>
+                        </h2>
+                        <div id="commercialMarketValueCollapse" class="accordion-collapse collapse" aria-labelledby="commercialMarketValueHeading" data-bs-parent="#commercialAccordion">
+                            <div class="accordion-body">
+                                <div class="table-responsive">
+                                    <table class="table table-bordered table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Type</th>
+                                                <th>N</th>
+                                                <th>Mean</th>
+                                                <th>Median</th>
+                                                <th>Minimum</th>
+                                                <th>Maximum</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for row in combined_data['COMMERCIAL'] %}
+                                            <tr>
+                                                <td>{{ row['Type'] }}</td>
+                                                <td>{{ row['N'] if 'N' in row else row['count'] }}</td>
+                                                <td>{{ row['Mean'] if 'Mean' in row else row['mean'] }}</td>
+                                                <td>{{ row['Median'] if 'Median' in row else row['median'] }}</td>
+                                                <td>{{ row['Min'] if 'Min' in row else row['min'] }}</td>
+                                                <td>{{ row['Max'] if 'Max' in row else row['max'] }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Scatter Plots Section -->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="commercialPlotsHeading">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#commercialPlotsCollapse" aria-expanded="false" aria-controls="commercialPlotsCollapse">
+                                <i class="bi bi-bar-chart-line me-2"></i> Sales Ratio Trends
+                            </button>
+                        </h2>
+                        <div id="commercialPlotsCollapse" class="accordion-collapse collapse" aria-labelledby="commercialPlotsHeading" data-bs-parent="#commercialAccordion">
+                            <div class="accordion-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="plot-container">
+                                            <h5 class="section-title">Sales Ratio vs Months</h5>
+                                            <img src="{{ scatter_plots['COMMERCIAL'] }}" alt="Commercial Sales Ratio Trend" class="plot-image">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="plot-container">
+                                            <h5 class="section-title">Unadjusted Ratio vs Months</h5>
+                                            <img src="{{ scatter_plots_unadjratio['COMMERCIAL'] }}" alt="Commercial Unadjusted Ratio Trend" class="plot-image">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Residential Tab -->
+            {% if 'RESIDENTIAL' in usetypes %}
+            <div class="tab-pane fade {% if 'COMMERCIAL' not in usetypes %}show active{% endif %}" id="residential" role="tabpanel" aria-labelledby="residential-tab">
+                <div class="accordion" id="residentialAccordion">
+                    <!-- Ratios Table Section -->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="residentialRatiosHeading">
+                            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#residentialRatiosCollapse" aria-expanded="true" aria-controls="residentialRatiosCollapse">
+                                <i class="bi bi-table me-2"></i> Sales Ratio Statistics
+                            </button>
+                        </h2>
+                        <div id="residentialRatiosCollapse" class="accordion-collapse collapse show" aria-labelledby="residentialRatiosHeading" data-bs-parent="#residentialAccordion">
+                            <div class="accordion-body">
+                                <div class="table-responsive">
+                                    <table class="table table-bordered table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Year</th>
+                                                <th>N</th>
+                                                <th>Mean Ratio</th>
+                                                <th>Median Ratio</th>
+                                                <th>Weighted Mean</th>
+                                                <th>COD</th>
+                                                <th>PRD</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for row in table1_data['RESIDENTIAL'] %}
+                                            <tr>
+                                                <td>{{ row['SYEAR'] }}</td>
+                                                <td>{{ row['N'] }}</td>
+                                                <td>{{ row['Mean Ratio'] }}</td>
+                                                <td>{{ row['Median Ratio'] }}</td>
+                                                <td>{{ row['Weighted Mean Ratio'] }}</td>
+                                                <td>{{ row['COD'] }}</td>
+                                                <td>{{ row['PRD'] }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                            <tr class="total-row">
+                                                <td><strong>{{ table1_totals['RESIDENTIAL']['SYEAR'] }}</strong></td>
+                                                <td><strong>{{ table1_totals['RESIDENTIAL']['N'] }}</strong></td>
+                                                <td><strong>{{ table1_totals['RESIDENTIAL']['Mean Ratio'] }}</strong></td>
+                                                <td><strong>{{ table1_totals['RESIDENTIAL']['Median Ratio'] }}</strong></td>
+                                                <td><strong>{{ table1_totals['RESIDENTIAL']['Weighted Mean Ratio'] }}</strong></td>
+                                                <td><strong>{{ table1_totals['RESIDENTIAL']['COD'] }}</strong></td>
+                                                <td><strong>{{ table1_totals['RESIDENTIAL']['PRD'] }}</strong></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Market Value Changes Section -->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="residentialMarketValueHeading">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#residentialMarketValueCollapse" aria-expanded="false" aria-controls="residentialMarketValueCollapse">
+                                <i class="bi bi-graph-up me-2"></i> Market Value Analysis
+                            </button>
+                        </h2>
+                        <div id="residentialMarketValueCollapse" class="accordion-collapse collapse" aria-labelledby="residentialMarketValueHeading" data-bs-parent="#residentialAccordion">
+                            <div class="accordion-body">
+                                <div class="table-responsive">
+                                    <table class="table table-bordered table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Type</th>
+                                                <th>N</th>
+                                                <th>Mean</th>
+                                                <th>Median</th>
+                                                <th>Minimum</th>
+                                                <th>Maximum</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for row in combined_data['RESIDENTIAL'] %}
+                                            <tr>
+                                                <td>{{ row['Type'] }}</td>
+                                                <td>{{ row['N'] if 'N' in row else row['count'] }}</td>
+                                                <td>{{ row['Mean'] if 'Mean' in row else row['mean'] }}</td>
+                                                <td>{{ row['Median'] if 'Median' in row else row['median'] }}</td>
+                                                <td>{{ row['Min'] if 'Min' in row else row['min'] }}</td>
+                                                <td>{{ row['Max'] if 'Max' in row else row['max'] }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PRB Regression Analysis Section -->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="prbRegressionHeading">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#prbRegressionCollapse" aria-expanded="false" aria-controls="prbRegressionCollapse">
+                                <i class="bi bi-calculator me-2"></i> PRB Regression Analysis
+                            </button>
+                        </h2>
+                        <div id="prbRegressionCollapse" class="accordion-collapse collapse" aria-labelledby="prbRegressionHeading" data-bs-parent="#residentialAccordion">
+                            <div class="accordion-body">
+                                <!-- Model Summary -->
+                                <h5 class="section-title">Model Summary</h5>
+                                <div class="table-responsive mb-4">
+                                    <table class="table table-bordered table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>R</th>
+                                                <th>R-squared</th>
+                                                <th>Adjusted R-squared</th>
+                                                <th>Std. Error</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% if model_summary %}
+                                            <tr>
+                                                <td>{{ model_summary['R'] }}</td>
+                                                <td>{{ model_summary['R-squared'] }}</td>
+                                                <td>{{ model_summary['Adjusted R-squared'] }}</td>
+                                                <td>{{ model_summary['Std. Error of the Estimate'] }}</td>
+                                            </tr>
+                                            {% else %}
+                                            <tr>
+                                                <td colspan="4" class="text-center">No Model Summary Available</td>
+                                            </tr>
+                                            {% endif %}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <!-- Coefficients Table -->
+                                <h5 class="section-title">Regression Coefficients</h5>
+                                <div class="table-responsive mb-4">
+                                    <table class="table table-bordered table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th rowspan="2">Variable</th>
+                                                <th colspan="2">Unstandardized</th>
+                                                <th rowspan="2">Standardized</th>
+                                                <th rowspan="2">t-value</th>
+                                                <th rowspan="2">Significance</th>
+                                            </tr>
+                                            <tr>
+                                                <th>Coefficient (B)</th>
+                                                <th>Std. Error</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% if regression_results %}
+                                                {% for row in regression_results %}
+                                                <tr>
+                                                    <td>{{ row['Model'] }}</td>
+                                                    <td>{{ row['Unstandardized Coefficients (B)'] }}</td>
+                                                    <td>{{ row['Unstandardized Coefficients (Std. Error)'] }}</td>
+                                                    <td>{{ row['Standardized Coefficients (Beta)'] }}</td>
+                                                    <td>{{ row['t-value'] }}</td>
+                                                    <td>{{ row['Sig.'] }}</td>
+                                                </tr>
+                                                {% endfor %}
+                                            {% else %}
+                                                <tr>
+                                                    <td colspan="6" class="text-center">No Regression Results Available</td>
+                                                </tr>
+                                            {% endif %}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <!-- PRB Plots -->
+                                {% if plot_paths_coeffofprb %}
+                                <h5 class="section-title">PRB Analysis Plots</h5>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="plot-container">
+                                            <h6>PRB Plot of Ratios against value proxy as percentages</h6>
+                                            <img src="{{ plot_paths_coeffofprb['ln_value_vs_dependent_var'] }}" alt="PRB Value Proxy Analysis" class="plot-image">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="plot-container">
+                                            <h6>PRB Plot of Ratios against value proxy</h6>
+                                            <img src="{{ plot_paths_coeffofprb['hybrid_value_vs_ratio'] }}" alt="PRB Hybrid Value Analysis" class="plot-image">
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Residential Characteristics Section -->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="residentialCharacteristicsHeading">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#residentialCharacteristicsCollapse" aria-expanded="false" aria-controls="residentialCharacteristicsCollapse">
+                                <i class="bi bi-house-door me-2"></i> Property Characteristics Analysis
+                            </button>
+                        </h2>
+                        <div id="residentialCharacteristicsCollapse" class="accordion-collapse collapse" aria-labelledby="residentialCharacteristicsHeading" data-bs-parent="#residentialAccordion">
+                            <div class="accordion-body">
+                                <!-- Architecture Style -->
+                                {% if arcstyle_data %}
+                                <h5 class="section-title">By Architectural Style</h5>
+                                <div class="table-responsive mb-4">
+                                    <table class="table table-bordered table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Style</th>
+                                                <th>N</th>
+                                                <th>Mean</th>
+                                                <th>Median</th>
+                                                <th>Min</th>
+                                                <th>Max</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for row in arcstyle_data %}
+                                            <tr>
+                                                <td>{{ row.ARCSTYLE }}</td>
+                                                <td>{{ row.N }}</td>
+                                                <td>{{ row.Mean }}</td>
+                                                <td>{{ row.Median }}</td>
+                                                <td>{{ row.Min }}</td>
+                                                <td>{{ row.Max }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                            {% if arcstyle_totals %}
+                                            <tr class="total-row">
+                                                <td><strong>{{ arcstyle_totals.ARCSTYLE }}</strong></td>
+                                                <td><strong>{{ arcstyle_totals.N }}</strong></td>
+                                                <td><strong>{{ arcstyle_totals.Mean }}</strong></td>
+                                                <td><strong>{{ arcstyle_totals.Median }}</strong></td>
+                                                <td><strong>{{ arcstyle_totals.Min }}</strong></td>
+                                                <td><strong>{{ arcstyle_totals.Max }}</strong></td>
+                                            </tr>
+                                            {% endif %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {% endif %}
+
+                                {% if effblt_data %}
+                                <h5 class="section-title">By Effective Year Built</h5>
+                                <div class="table-responsive mb-4">
+                                    <table class="table table-bordered table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Effective Year Range</th>
+                                                <th>N</th>
+                                                <th>Mean</th>
+                                                <th>Median</th>
+                                                <th>Min</th>
+                                                <th>Max</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for row in effblt_data %}
+                                            <tr>
+                                                <td>{{ row.EFFBLT }}</td>
+                                                <td>{{ row.N }}</td>
+                                                <td>{{ row.Mean }}</td>
+                                                <td>{{ row.Median }}</td>
+                                                <td>{{ row.Min }}</td>
+                                                <td>{{ row.Max }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                            {% if arcstyle_totals %}
+                                            <tr class="total-row">
+                                                <td><strong>{{ effblt_totals.EFFBLT }}</strong></td>
+                                                <td><strong>{{ effblt_totals.N }}</strong></td>
+                                                <td><strong>{{ effblt_totals.Mean }}</strong></td>
+                                                <td><strong>{{ effblt_totals.Median }}</strong></td>
+                                                <td><strong>{{ effblt_totals.Min }}</strong></td>
+                                                <td><strong>{{ effblt_totals.Max }}</strong></td>
+                                            </tr>
+                                            {% endif %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {% endif %}
+
+                                <!-- Construction Quality -->
+                                {% if quality_data %}
+                                <h5 class="section-title">By Quality</h5>
+                                <div class="table-responsive mb-4">
+                                    <table class="table table-bordered table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Quality</th>
+                                                <th>N</th>
+                                                <th>Mean</th>
+                                                <th>Median</th>
+                                                <th>Min</th>
+                                                <th>Max</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for row in quality_data %}
+                                            <tr>
+                                                <td>{{ row.QUALITY }}</td>
+                                                <td>{{ row.N }}</td>
+                                                <td>{{ row.Mean }}</td>
+                                                <td>{{ row.Median }}</td>
+                                                <td>{{ row.Min }}</td>
+                                                <td>{{ row.Max }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                            {% if quality_totals %}
+                                            <tr class="total-row">
+                                                <td><strong>{{ quality_totals.QUALITY }}</strong></td>
+                                                <td><strong>{{ quality_totals.N }}</strong></td>
+                                                <td><strong>{{ quality_totals.Mean }}</strong></td>
+                                                <td><strong>{{ quality_totals.Median }}</strong></td>
+                                                <td><strong>{{ quality_totals.Min }}</strong></td>
+                                                <td><strong>{{ quality_totals.Max }}</strong></td>
+                                            </tr>
+                                            {% endif %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {% endif %}
+
+                                {% if condition_data %}
+                                <h5 class="section-title">By Condition</h5>
+                                <div class="table-responsive mb-4">
+                                    <table class="table table-bordered table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Condition</th>
+                                                <th>N</th>
+                                                <th>Mean</th>
+                                                <th>Median</th>
+                                                <th>Min</th>
+                                                <th>Max</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for row in condition_data %}
+                                            <tr>
+                                                <td>{{ row.CONDITION }}</td>
+                                                <td>{{ row.N }}</td>
+                                                <td>{{ row.Mean }}</td>
+                                                <td>{{ row.Median }}</td>
+                                                <td>{{ row.Min }}</td>
+                                                <td>{{ row.Max }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                            {% if condition_totals %}
+                                            <tr class="total-row">
+                                                <td><strong>{{ condition_totals.CONDITION }}</strong></td>
+                                                <td><strong>{{ condition_totals.N }}</strong></td>
+                                                <td><strong>{{ condition_totals.Mean }}</strong></td>
+                                                <td><strong>{{ condition_totals.Median }}</strong></td>
+                                                <td><strong>{{ condition_totals.Min }}</strong></td>
+                                                <td><strong>{{ condition_totals.Max }}</strong></td>
+                                            </tr>
+                                            {% endif %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {% endif %}
+
+                                {% if gartype_data %}
+                                <h5 class="section-title">By Garage Type</h5>
+                                <div class="table-responsive mb-4">
+                                    <table class="table table-bordered table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>GARTYPE</th>
+                                                <th>N</th>
+                                                <th>Mean</th>
+                                                <th>Median</th>
+                                                <th>Min</th>
+                                                <th>Max</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for row in gartype_data %}
+                                            <tr>
+                                                <td>{{ row.GARTYPE }}</td>
+                                                <td>{{ row.N }}</td>
+                                                <td>{{ row.Mean }}</td>
+                                                <td>{{ row.Median }}</td>
+                                                <td>{{ row.Min }}</td>
+                                                <td>{{ row.Max }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                            {% if gartype_totals %}
+                                            <tr class="total-row">
+                                                <td><strong>{{ gartype_totals.GARTYPE }}</strong></td>
+                                                <td><strong>{{ gartype_totals.N }}</strong></td>
+                                                <td><strong>{{ gartype_totals.Mean }}</strong></td>
+                                                <td><strong>{{ gartype_totals.Median }}</strong></td>
+                                                <td><strong>{{ gartype_totals.Min }}</strong></td>
+                                                <td><strong>{{ gartype_totals.Max }}</strong></td>
+                                            </tr>
+                                            {% endif %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {% endif %}
+
+                                {% if finbsmnt_data %}
+                                <h5 class="section-title">By FinBasement</h5>
+                                <div class="table-responsive mb-4">
+                                    <table class="table table-bordered table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>FINBASEMENT</th>
+                                                <th>N</th>
+                                                <th>Mean</th>
+                                                <th>Median</th>
+                                                <th>Min</th>
+                                                <th>Max</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for row in finbsmnt_data %}
+                                            <tr>
+                                                <td>{{ row.FINBSMNT  }}</td>
+                                                <td>{{ row.N }}</td>
+                                                <td>{{ row.Mean }}</td>
+                                                <td>{{ row.Median }}</td>
+                                                <td>{{ row.Min }}</td>
+                                                <td>{{ row.Max }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                            {% if finbsmnt_totals %}
+                                            <tr class="total-row">
+                                                <td><strong>{{ finbsmnt_totals.FINBSMNT }}</strong></td>
+                                                <td><strong>{{ finbsmnt_totals.N }}</strong></td>
+                                                <td><strong>{{ finbsmnt_totals.Mean }}</strong></td>
+                                                <td><strong>{{ finbsmnt_totals.Median }}</strong></td>
+                                                <td><strong>{{ finbsmnt_totals.Min }}</strong></td>
+                                                <td><strong>{{ finbsmnt_totals.Max }}</strong></td>
+                                            </tr>
+                                            {% endif %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {% endif %}
+
+                                {% if bsmnt_data %}
+                                <h5 class="section-title">By Basement</h5>
+                                <div class="table-responsive mb-4">
+                                    <table class="table table-bordered table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>BASEMENT</th>
+                                                <th>N</th>
+                                                <th>Mean</th>
+                                                <th>Median</th>
+                                                <th>Min</th>
+                                                <th>Max</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for row in bsmnt_data %}
+                                            <tr>
+                                                <td>{{ row.BASEMENT  }}</td>
+                                                <td>{{ row.N }}</td>
+                                                <td>{{ row.Mean }}</td>
+                                                <td>{{ row.Median }}</td>
+                                                <td>{{ row.Min }}</td>
+                                                <td>{{ row.Max }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                            {% if bsmnt_totals %}
+                                            <tr class="total-row">
+                                                <td><strong>{{ bsmnt_totals.BASEMENT }}</strong></td>
+                                                <td><strong>{{ bsmnt_totals.N }}</strong></td>
+                                                <td><strong>{{ bsmnt_totals.Mean }}</strong></td>
+                                                <td><strong>{{ bsmnt_totals.Median }}</strong></td>
+                                                <td><strong>{{ bsmnt_totals.Min }}</strong></td>
+                                                <td><strong>{{ bsmnt_totals.Max }}</strong></td>
+                                            </tr>
+                                            {% endif %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {% endif %}
+
+                                {% if livearea_data %}
+                                <h5 class="section-title">By Live Area</h5>
+                                <div class="table-responsive mb-4">
+                                    <table class="table table-bordered table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>LIVE AREA</th>
+                                                <th>N</th>
+                                                <th>Mean</th>
+                                                <th>Median</th>
+                                                <th>Min</th>
+                                                <th>Max</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for row in livearea_data %}
+                                            <tr>
+                                                <td>{{ row.LIVEAREA }}</td>
+                                                <td>{{ row.N }}</td>
+                                                <td>{{ row.Mean }}</td>
+                                                <td>{{ row.Median }}</td>
+                                                <td>{{ row.Min }}</td>
+                                                <td>{{ row.Max }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                            {% if livearea_totals %}
+                                            <tr class="total-row">
+                                                <td><strong>{{ livearea_totals.LIVEAREA }}</strong></td>
+                                                <td><strong>{{ livearea_totals.N }}</strong></td>
+                                                <td><strong>{{ livearea_totals.Mean }}</strong></td>
+                                                <td><strong>{{ livearea_totals.Median }}</strong></td>
+                                                <td><strong>{{ livearea_totals.Min }}</strong></td>
+                                                <td><strong>{{ livearea_totals.Max }}</strong></td>
+                                            </tr>
+                                            {% endif %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {% endif %}
+
+                                {% if lndsize_data %}
+                                <h5 class="section-title">By Land Size</h5>
+                                <div class="table-responsive mb-4">
+                                    <table class="table table-bordered table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Land Size</th>
+                                                <th>N</th>
+                                                <th>Mean</th>
+                                                <th>Median</th>
+                                                <th>Min</th>
+                                                <th>Max</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for row in lndsize_data %}
+                                            <tr>
+                                                <td>{{ row.LNDSIZE }}</td>
+                                                <td>{{ row.N }}</td>
+                                                <td>{{ row.Mean }}</td>
+                                                <td>{{ row.Median }}</td>
+                                                <td>{{ row.Min }}</td>
+                                                <td>{{ row.Max }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                            {% if lndsize_totals %}
+                                            <tr class="total-row">
+                                                <td><strong>{{ lndsize_totals.LNDSIZE }}</strong></td>
+                                                <td><strong>{{ lndsize_totals.N }}</strong></td>
+                                                <td><strong>{{ lndsize_totals.Mean }}</strong></td>
+                                                <td><strong>{{ lndsize_totals.Median }}</strong></td>
+                                                <td><strong>{{ lndsize_totals.Min }}</strong></td>
+                                                <td><strong>{{ lndsize_totals.Max }}</strong></td>
+                                            </tr>
+                                            {% endif %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {% endif %}
+
+                                <!-- Scatter Plots for Characteristics -->
+                                <h5 class="section-title">Characteristic Analysis Plots</h5>
+                                <div class="row">
+                                    {% if scatter_plot_effblt %}
+                                    <div class="col-md-6">
+                                        <div class="plot-container">
+                                            <h6>Effective Year Built vs Ratio</h6>
+                                            <img src="{{ scatter_plot_effblt }}" alt="Effective Year Built Analysis" class="plot-image">
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                    {% if scatter_plot_livearea %}
+                                    <div class="col-md-6">
+                                        <div class="plot-container">
+                                            <h6>Living Area vs Ratio</h6>
+                                            <img src="{{ scatter_plot_livearea }}" alt="Living Area Analysis" class="plot-image">
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                    {% if scatter_plot_finbsmnt %}
+                                    <div class="col-md-6">
+                                        <div class="plot-container">
+                                            <h6>FinBasement vs Ratio</h6>
+                                            <img src="{{ scatter_plot_finbsmnt }}" alt="FinBasement Analysis" class="plot-image">
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                    {% if scatter_plot_bsmnt %}
+                                    <div class="col-md-6">
+                                        <div class="plot-container">
+                                            <h6>Basement vs Ratio</h6>
+                                            <img src="{{ scatter_plot_bsmnt }}" alt="Basement Analysis" class="plot-image">
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                    {% if scatter_plot_lndsize %}
+                                    <div class="col-md-6">
+                                        <div class="plot-container">
+                                            <h6>Land Size vs Ratio</h6>
+                                            <img src="{{ scatter_plot_lndsize }}" alt="Land Size Analysis" class="plot-image">
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Scatter Plots Section -->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="residentialPlotsHeading">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#residentialPlotsCollapse" aria-expanded="false" aria-controls="residentialPlotsCollapse">
+                                <i class="bi bi-bar-chart-line me-2"></i> Sales Ratio Trends
+                            </button>
+                        </h2>
+                        <div id="residentialPlotsCollapse" class="accordion-collapse collapse" aria-labelledby="residentialPlotsHeading" data-bs-parent="#residentialAccordion">
+                            <div class="accordion-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="plot-container">
+                                            <h5 class="section-title">Sales Ratio vs Months</h5>
+                                            <img src="{{ scatter_plots['RESIDENTIAL'] }}" alt="Residential Sales Ratio Trend" class="plot-image">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="plot-container">
+                                            <h5 class="section-title">Unadjusted Ratio vs Months</h5>
+                                            <img src="{{ scatter_plots_unadjratio['RESIDENTIAL'] }}" alt="Residential Unadjusted Ratio Trend" class="plot-image">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Vacant Land Tab -->
+            {% if 'VACANT LAND' in usetypes %}
+            <div class="tab-pane fade" id="vacant-land" role="tabpanel" aria-labelledby="vacant-land-tab">
+                <div class="accordion" id="vacantLandAccordion">
+                    <!-- Ratios Table Section -->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="vacantLandRatiosHeading">
+                            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#vacantLandRatiosCollapse" aria-expanded="true" aria-controls="vacantLandRatiosCollapse">
+                                <i class="bi bi-table me-2"></i> Sales Ratio Statistics
+                            </button>
+                        </h2>
+                        <div id="vacantLandRatiosCollapse" class="accordion-collapse collapse show" aria-labelledby="vacantLandRatiosHeading" data-bs-parent="#vacantLandAccordion">
+                            <div class="accordion-body">
+                                <div class="table-responsive">
+                                    <table class="table table-bordered table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Year</th>
+                                                <th>N</th>
+                                                <th>Mean Ratio</th>
+                                                <th>Median Ratio</th>
+                                                <th>Weighted Mean</th>
+                                                <th>COD</th>
+                                                <th>PRD</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for row in table1_data['VACANT LAND'] %}
+                                            <tr>
+                                                <td>{{ row['SYEAR'] }}</td>
+                                                <td>{{ row['N'] }}</td>
+                                                <td>{{ row['Mean Ratio'] }}</td>
+                                                <td>{{ row['Median Ratio'] }}</td>
+                                                <td>{{ row['Weighted Mean Ratio'] }}</td>
+                                                <td>{{ row['COD'] }}</td>
+                                                <td>{{ row['PRD'] }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                            <tr class="total-row">
+                                                <td><strong>{{ table1_totals['VACANT LAND']['SYEAR'] }}</strong></td>
+                                                <td><strong>{{ table1_totals['VACANT LAND']['N'] }}</strong></td>
+                                                <td><strong>{{ table1_totals['VACANT LAND']['Mean Ratio'] }}</strong></td>
+                                                <td><strong>{{ table1_totals['VACANT LAND']['Median Ratio'] }}</strong></td>
+                                                <td><strong>{{ table1_totals['VACANT LAND']['Weighted Mean Ratio'] }}</strong></td>
+                                                <td><strong>{{ table1_totals['VACANT LAND']['COD'] }}</strong></td>
+                                                <td><strong>{{ table1_totals['VACANT LAND']['PRD'] }}</strong></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Market Value Changes Section -->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="vacantLandMarketValueHeading">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#vacantLandMarketValueCollapse" aria-expanded="false" aria-controls="vacantLandMarketValueCollapse">
+                                <i class="bi bi-graph-up me-2"></i> Market Value Analysis
+                            </button>
+                        </h2>
+                        <div id="vacantLandMarketValueCollapse" class="accordion-collapse collapse" aria-labelledby="vacantLandMarketValueHeading" data-bs-parent="#vacantLandAccordion">
+                            <div class="accordion-body">
+                                <div class="table-responsive">
+                                    <table class="table table-bordered table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Type</th>
+                                                <th>N</th>
+                                                <th>Mean</th>
+                                                <th>Median</th>
+                                                <th>Minimum</th>
+                                                <th>Maximum</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for row in combined_data['VACANT LAND'] %}
+                                            <tr>
+                                                <td>{{ row['Type'] }}</td>
+                                                <td>{{ row['N'] if 'N' in row else row['count'] }}</td>
+                                                <td>{{ row['Mean'] if 'Mean' in row else row['mean'] }}</td>
+                                                <td>{{ row['Median'] if 'Median' in row else row['median'] }}</td>
+                                                <td>{{ row['Min'] if 'Min' in row else row['min'] }}</td>
+                                                <td>{{ row['Max'] if 'Max' in row else row['max'] }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Scatter Plots Section -->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="vacantLandPlotsHeading">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#vacantLandPlotsCollapse" aria-expanded="false" aria-controls="vacantLandPlotsCollapse">
+                                <i class="bi bi-bar-chart-line me-2"></i> Sales Ratio Trends
+                            </button>
+                        </h2>
+                        <div id="vacantLandPlotsCollapse" class="accordion-collapse collapse" aria-labelledby="vacantLandPlotsHeading" data-bs-parent="#vacantLandAccordion">
+                            <div class="accordion-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="plot-container">
+                                            <h5 class="section-title">Sales Ratio vs Months</h5>
+                                            <img src="{{ scatter_plots['VACANT LAND'] }}" alt="Vacant Land Sales Ratio Trend" class="plot-image">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="plot-container">
+                                            <h5 class="section-title">Unadjusted Ratio vs Months</h5>
+                                            <img src="{{ scatter_plots_unadjratio['VACANT LAND'] }}" alt="Vacant Land Unadjusted Ratio Trend" class="plot-image">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Bootstrap JS Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+</body>
+</html>

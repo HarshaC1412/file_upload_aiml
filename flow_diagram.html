@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vertical Process Flow Diagram</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 3px solid #3498db;
+        }
+        
+        /* Vertical Workflow Styles */
+        .vertical-workflow {
+            position: relative;
+            padding: 20px 0;
+        }
+        
+        .step {
+            display: flex;
+            margin-bottom: 30px;
+            position: relative;
+            align-items: flex-start;
+        }
+        
+        .step-number {
+            width: 30px;
+            height: 30px;
+            background-color: #3498db;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 20px;
+            flex-shrink: 0;
+            position: relative;
+            z-index: 2;
+        }
+        
+        .step-content {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+            width: 100%;
+            border-top: 5px solid;
+            position: relative;
+        }
+        
+        /* Step Colors */
+        .step-1 .step-content { border-color: #e74c3c; }
+        .step-2 .step-content { border-color: #3498db; }
+        .step-3 .step-content { border-color: #2ecc71; }
+        .step-4 .step-content { border-color: #f39c12; }
+        .step-5 .step-content { border-color: #9b59b6; }
+        .step-6 .step-content { border-color: #1abc9c; }
+        
+        /* Arrow Connectors */
+        .step:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            left: 15px;
+            top: 50px;
+            height: calc(100% - 20px);
+            width: 2px;
+            background-color: #95a5a6;
+            z-index: 1;
+        }
+        
+        .step:not(:last-child)::before {
+            content: '';
+            position: absolute;
+            left: 10px;
+            top: calc(100% - 15px);
+            width: 0;
+            height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 8px solid #95a5a6;
+            z-index: 2;
+        }
+        
+        .step-icon {
+            width: 40px;
+            height: 40px;
+            margin-right: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            background-color: white;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+            flex-shrink: 0;
+        }
+        
+        .step-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .step-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin: 0;
+        }
+        
+        .step-description {
+            color: #7f8c8d;
+            margin-top: 8px;
+            font-size: 14px;
+        }
+        
+        /* Responsive Adjustments */
+        @media (max-width: 600px) {
+            .step {
+                flex-direction: column;
+            }
+            .step-number {
+                margin-bottom: 10px;
+                margin-right: 0;
+            }
+            .step:not(:last-child)::after {
+                left: 15px;
+                top: 60px;
+                height: calc(100% - 30px);
+            }
+            .step:not(:last-child)::before {
+                left: 10px;
+                top: calc(100% - 25px);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Property Assessment System Workflow</h1>
+        
+        <div class="vertical-workflow">
+            <!-- Step 1 -->
+            <div class="step step-1">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <div class="step-header">
+                        <div class="step-icon">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="#e74c3c">
+                                <path d="M12 15v2m-6 4h12a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2zm10-10V7a4 4 0 0 0-8 0v2h8z"/>
+                            </svg>
+                        </div>
+                        <h3 class="step-title">System Login</h3>
+                    </div>
+                    <p class="step-description">Authenticate with username and password to access the assessment system</p>
+                    <ul>
+                        <li>Role-based access control</li>
+                        <li>Secure session management</li>
+                        <li>Password encryption</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- Step 2 -->
+            <div class="step step-2">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <div class="step-header">
+                        <div class="step-icon">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="#3498db">
+                                <path d="M7 16a4 4 0 0 1-.88-7.9A5 5 0 1 1 15.9 6h.1a5 5 0 0 1 1 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                            </svg>
+                        </div>
+                        <h3 class="step-title">Data Upload</h3>
+                    </div>
+                    <p class="step-description">Upload required property data files in CSV format</p>
+                    <ul>
+                        <li>Land File (parcel boundaries)</li>
+                        <li>Sales File (transaction history)</li>
+                        <li>Current Value File</li>
+                        <li>Historical Data File</li>
+                        <li>Improvements File</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- Step 3 -->
+            <div class="step step-3">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <div class="step-header">
+                        <div class="step-icon">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="#2ecc71">
+                                <path d="M12 6V4m0 2a2 2 0 1 0 0 4m0-4a2 2 0 1 1 0 4m-6 8a2 2 0 1 0 0-4m0 4a2 2 0 1 1 0-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 1 0 0-4m0 4a2 2 0 1 1 0-4m0 4v2m0-6V4"/>
+                            </svg>
+                        </div>
+                        <h3 class="step-title">Configure Parameters</h3>
+                    </div>
+                    <p class="step-description">Set analysis filters and assessment criteria</p>
+                    <ul>
+                        <li>Residential property time period</li>
+                        <li>Commercial property time period</li>
+                        <li>Vacant land analysis window</li>
+                        <li>County/jurisdiction selection</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- Step 4 -->
+            <div class="step step-4">
+                <div class="step-number">4</div>
+                <div class="step-content">
+                    <div class="step-header">
+                        <div class="step-icon">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="#f39c12">
+                                <path d="M9 12l2 2 4-4m6 2a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/>
+                            </svg>
+                        </div>
+                        <h3 class="step-title">Data Validation</h3>
+                    </div>
+                    <p class="step-description">System verifies data integrity and completeness</p>
+                    <ul>
+                        <li>File format validation</li>
+                        <li>Required field checks</li>
+                        <li>Data type verification</li>
+                        <li>Consistency across files</li>
+                        <li>Error reporting</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- Step 5 -->
+            <div class="step step-5">
+                <div class="step-number">5</div>
+                <div class="step-content">
+                    <div class="step-header">
+                        <div class="step-icon">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="#9b59b6">
+                                <path d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5.586a1 1 0 0 1 .707.293l5.414 5.414a1 1 0 0 1 .293.707V19a2 2 0 0 1-2 2z"/>
+                            </svg>
+                        </div>
+                        <h3 class="step-title">Assessment Processing</h3>
+                    </div>
+                    <p class="step-description">Comprehensive property valuation analysis</p>
+                    <ul>
+                        <li>Market trend analysis</li>
+                        <li>Valuation comparisons</li>
+                        <li>Anomaly detection</li>
+                        <li>Equity assessment</li>
+                        <li>Statistical modeling</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- Step 6 -->
+            <div class="step step-6">
+                <div class="step-number">6</div>
+                <div class="step-content">
+                    <div class="step-header">
+                        <div class="step-icon">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="#1abc9c">
+                                <path d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5.586a1 1 0 0 1 .707.293l5.414 5.414a1 1 0 0 1 .293.707V19a2 2 0 0 1-2 2z"/>
+                            </svg>
+                        </div>
+                        <h3 class="step-title">Report Generation</h3>
+                    </div>
+                    <p class="step-description">Create and deliver assessment results</p>
+                    <ul>
+                        <li>Interactive web report</li>
+                        <li>Printable PDF document</li>
+                        <li>Summary statistics</li>
+                        <li>Visualizations and charts</li>
+                        <li>Data export options</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

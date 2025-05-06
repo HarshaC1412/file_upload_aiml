@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
+    <title>Upload Files</title>
+    <style>
+        body {
+            background-color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            color: #333333;
+            margin-bottom: 20px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        form {
+            margin-top: 20px;
+        }
+
+        label {
+            font-size: 16px;
+            font-weight: 500;
+            color: #333333;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        input[type="file"] {
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            padding: 8px;
+            width: 100%;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        .btn {
+            font-size: 16px;
+            padding: 10px 20px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            display: block;
+            width: 100%;
+            text-align: center;
+        }
+
+        .btn-primary {
+            background-color: #007bff;
+            border: none;
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            background-color: #0056b3;
+        }
+
+        .btn-success {
+            background-color: #28a745;
+            border: none;
+            color: #fff;
+        }
+
+        .btn-success:hover {
+            background-color: #218838;
+        }
+
+        .logout-button {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            font-size: 16px;
+            padding: 6px 12px;
+            border-radius: 6px;
+            width: auto;
+        }
+
+        .disabled {
+            background-color: grey;
+            pointer-events: none;
+        }
+
+        .form-group {
+            margin-bottom: 10px;
+        }
+
+        .form-group label {
+            display: inline-block;
+            width: 120px;
+        }
+
+        /* Full-Page Popup Styling */
+        .modal-full {
+            width: 100vw;
+            max-width: none;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .full-page-popup {
+            height: 100vh;
+            background: linear-gradient(135deg, #f5f7fa, #c3cfe2);
+            border: none;
+            border-radius: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .popup-header {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+        }
+
+        .popup-header .close {
+            font-size: 2rem;
+            color: #333;
+            opacity: 0.7;
+        }
+
+        .popup-header .close:hover {
+            opacity: 1;
+        }
+
+        .popup-body {
+            padding: 20px;
+            text-align: center;
+        }
+
+        .popup-title {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .popup-message {
+            font-size: 1.2rem;
+            color: #555;
+            margin-bottom: 30px;
+        }
+
+        .success-icon svg,
+        .error-icon svg {
+            margin-bottom: 20px;
+            animation: bounce 1s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-10px);
+            }
+        }
+
+        .custom-loading-icon {
+            width: 100px;
+            height: 100px;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Logout button at the top-right corner -->
+    <a href="{{ url_for('logout') }}" class="btn btn-primary logout-button" role="button" aria-pressed="true">Logout</a>
+    <div class="container">
+        <h1>Upload CSV Files For Audit</h1>
+        <form id="fileForm" action="/results" method="POST" enctype="multipart/form-data">
+            <label for="l_file">Select Land File:</label>
+            <input type="file" name="l_file" id="l_file" accept=".csv" required>
+            <br>
+
+            <label for="s_file">Select Sales File:</label>
+            <input type="file" name="s_file" id="s_file" accept=".csv" required>
+            <br>
+
+            <label for="c_file">Select Current Value File:</label>
+            <input type="file" name="c_file" id="c_file" accept=".csv" required>
+            <br>
+
+            <label for="h_file">Select Historical File:</label>
+            <input type="file" name="h_file" id="h_file" accept=".csv" required>
+            <br>
+
+            <label for="i_file">Select Improvement File:</label>
+            <input type="file" name="i_file" id="i_file" accept=".csv" required>
+            <br>
+
+            <h4>Filter based on Months:</h4><br>
+
+            <div class="form-group">
+                <label for="res">Residential</label>
+                <input type="number" id="res" name="res" min="0">
+            </div>
+            <div class="form-group">
+                <label for="com">Commercial</label>
+                <input type="number" id="com" name="com" min="0">
+            </div>
+            <div class="form-group">
+                <label for="vl">Vacant Land</label>
+                <input type="number" id="vl" name="vl" min="0">
+            </div><br/><br/>
+
+            <label for="cname">County name:&nbsp;&nbsp;&nbsp;&nbsp;<input type="text" id="cname" name="cname"></label><br/><br/>
+
+            <button type="button" id="validateBtn" class="btn btn-primary">Validate Data</button>
+            <button type="submit" id="runAuditBtn" class="btn btn-success disabled">Run Audit Checker</button>
+        </form>
+    </div>
+
+    <!-- Full-Page Success Popup -->
+    <div class="modal fade" id="successModal" tabindex="-1" role="dialog" aria-labelledby="successModalLabel">
+        <div class="modal-dialog modal-full" role="document">
+            <div class="modal-content full-page-popup">
+                <!-- Close Button at the Top -->
+                <div class="popup-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <!-- Popup Body with Graphics -->
+                <div class="popup-body text-center">
+                    <!-- Success Icon -->
+                    <div class="success-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" fill="green" class="bi bi-check-circle-fill" viewBox="0 0 16 16">
+                            <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
+                        </svg>
+                    </div>
+                    <!-- Success Message -->
+                    <h1 class="popup-title">Validated</h1>
+                    <p id="successMessage" class="popup-message"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Modal -->
+    <div class="modal fade" id="loadingModal" tabindex="-1" role="dialog" aria-labelledby="loadingModalLabel">
+        <div class="modal-dialog modal-full" role="document">
+            <div class="modal-content full-page-popup">
+                <!-- Loading Animation -->
+                <div class="popup-body text-center">
+                    <!-- Graphical Loading Icon -->
+                    <img src="https://i.gifer.com/VAyR.gif" alt="Loading" class="custom-loading-icon">
+                    
+                    <!-- Bootstrap Spinner -->
+                    <div class="spinner-border text-primary" role="status" style="width: 4rem; height: 4rem;">
+                        <span class="sr-only">Validated</span>
+                    </div>
+                    
+                    <h1 class="popup-title">Processing...</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Full-Page Error Popup -->
+    <div class="modal fade" id="errorModal" tabindex="-1" role="dialog" aria-labelledby="errorModalLabel">
+        <div class="modal-dialog modal-full" role="document">
+            <div class="modal-content full-page-popup">
+                <!-- Close Button at the Top -->
+                <div class="popup-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <!-- Error Icon -->
+                <div class="popup-body text-center">
+                    <div class="error-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" fill="red" class="bi bi-x-circle-fill" viewBox="0 0 16 16">
+                            <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zM5.354 4.646a.5.5 0 1 0-.708.708L7.293 8l-2.647 2.646a.5.5 0 0 0 .708.708L8 8.707l2.646 2.647a.5.5 0 0 0 .708-.708L8.707 8l2.647-2.646a.5.5 0 0 0-.708-.708L8 7.293 5.354 4.646z"/>
+                        </svg>
+                    </div>
+                    <!-- Error Message -->
+                    <h2 class="popup-title">Error!</h2>
+                    <p id="errorMessage" class="popup-message"></p>
+                    <!-- Optional: Add a Button -->
+                    <button type="button" class="btn btn-danger" data-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        $(document).ready(function() {
+            $("#validateBtn").click(function() {
+                var formData = new FormData(document.getElementById("fileForm"));
+
+                $.ajax({
+                    url: "/validate_data",
+                    type: "POST",
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(response) {
+                        // Hide loading modal
+                        $("#loadingModal").modal('hide');
+
+                        if (response.status === "success") {
+                            // Show success modal with message
+                            let message = "Files uploaded and validated successfully.<br><br>";
+                            for (let file in response.validation_messages) {
+                                message += `<b>${file}:</b> ${response.validation_messages[file]}<br>`;
+                            }
+                            $("#successMessage").html(message);
+                            $("#successModal").modal('show');
+                            $("#runAuditBtn").removeClass("disabled");
+                        } else {
+                            // Show error modal with message
+                            let errorMessage = "Validation errors found:<br><br>";
+                            for (let file in response.validation_messages) {
+                                errorMessage += `<b>${file}:</b> ${response.validation_messages[file]}<br>`;
+                            }
+                            $("#errorMessage").html(errorMessage);
+                            $("#errorModal").modal('show');
+                            $("#runAuditBtn").addClass("disabled");
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        // Hide loading modal
+                        $("#loadingModal").modal('hide');
+
+                        // Show error modal with message
+                        $("#errorMessage").html("Error validating data: " + (xhr.responseText || "Unknown error"));
+                        $("#errorModal").modal('show');
+                        $("#runAuditBtn").addClass("disabled");
+                    }
+                });
+            });
+
+            $("#runAuditBtn").click(function(event) {
+                if ($(this).hasClass("disabled")) {
+                    event.preventDefault(); // Prevent action if the button is disabled
+                } else {
+                    // Set the popup title for processing
+                    $("#loadingModal .popup-title").text("Processing...");
+
+                    // Show loading modal
+                     $("#loadingModal").modal('show');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
