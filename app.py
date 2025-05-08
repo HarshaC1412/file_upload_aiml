@@ -130,11 +130,11 @@ def validate_data():
 
     # Define required columns for each file with updated specifications
     required_columns = {
-        'l_file': ['PARCEL', 'ABSTRLND','LNDSIZE'],  # Updated Land file columns
+        'l_file': ['PARCEL', 'ABSTRLND', 'LNDSIZE'],  # Updated Land file columns
         's_file': ['PARCEL', 'ABSTRPRD', 'NETPRICE', 'TASP'],  # Updated Sales file columns
         'c_file': ['PARCEL', 'CURRTOT'],  # Updated Current Value file columns
-        'h_file': ['PARCEL','PREVTOT'],  # Updated Historical file columns
-        'i_file': ['PARCEL', 'ABSTRIMP', 'LIVEAREA', 'EFFBLT', 'CONDITION', 'QUALITY', 'ARCSTYLE','FINBSMNT','GARTYPE','BASEMENT']  # Updated Improvement file columns
+        'h_file': ['PARCEL', 'PREVTOT'],  # Updated Historical file columns
+        'i_file': ['PARCEL', 'ABSTRIMP', 'LIVEAREA', 'EFFBLT', 'CONDITION', 'QUALITY', 'ARCSTYLE', 'FINBSMNT', 'GARTYPE', 'BASEMENT']  # Updated Improvement file columns
     }
 
     # Mapping of file keys to display names
@@ -159,14 +159,24 @@ def validate_data():
             # Read the CSV file to check columns
             try:
                 df = pd.read_csv(file_path)
-                missing_columns = [col for col in required_columns[file_key] if col not in df.columns]
+                # Adjust required columns if SUBCLASS is present instead
+                check_columns = required_columns[file_key]
+                if file_key in ['l_file', 's_file', 'i_file'] and 'SUBCLASS' in df.columns:
+                    if file_key == 'l_file' and 'ABSTRLND' not in df.columns:
+                        check_columns = ['PARCEL', 'SUBCLASS', 'LNDSIZE']
+                    elif file_key == 's_file' and 'ABSTRPRD' not in df.columns:
+                        check_columns = ['PARCEL', 'SUBCLASS', 'NETPRICE', 'TASP']
+                    elif file_key == 'i_file' and 'ABSTRIMP' not in df.columns:
+                        check_columns = ['PARCEL', 'SUBCLASS', 'LIVEAREA', 'EFFBLT', 'CONDITION', 'QUALITY', 'ARCSTYLE', 'FINBSMNT', 'GARTYPE', 'BASEMENT']
+
+                missing_columns = [col for col in check_columns if col not in df.columns]
                 if missing_columns:
                     validation_messages[file_key] = f'<span style="color: red;font-size: 20px;"><strong>Missing columns: {", ".join(missing_columns)}</strong></span>'
                     has_errors = True  # Set flag to True if there are missing columns
                 else:
                     # Include the list of required columns in the success message
                     validation_messages[file_key] = (
-                        f"All required columns are present: {', '.join(required_columns[file_key])}"
+                        f"All required columns are present: {', '.join(check_columns)}"
                     )
             except Exception as e:
                 validation_messages[file_key] = f"Error reading file: {str(e)}"
@@ -272,25 +282,28 @@ def process_data(file_paths, month_filters):
         df_sales['PARCEL'] = df_sales['PARCEL'].astype(str)
         df_improvement['PARCEL'] = df_improvement['PARCEL'].astype(str)
 
-        # Rename ABSTRIMP to ABSTRPRD in df_improvement if present
+        # Step 3: Rename ABSTRIMP or SUBCLASS to ABSTRPRD in df_improvement
         if 'ABSTRIMP' in df_improvement.columns:
             df_improvement.rename(columns={'ABSTRIMP': 'ABSTRPRD'}, inplace=True)
             print("Renamed ABSTRIMP to ABSTRPRD in df_improvement")
+        elif 'SUBCLASS' in df_improvement.columns:
+            df_improvement.rename(columns={'SUBCLASS': 'ABSTRPRD'}, inplace=True)
+            print("Renamed SUBCLASS to ABSTRPRD in df_improvement")
         else:
-            print("Warning: 'ABSTRIMP' column not found in df_improvement")
+            print("Warning: Neither 'ABSTRIMP' nor 'SUBCLASS' found in df_improvement")
 
-        # Step 3: Filter df_improvement for BLDGNUM = '1' and store in array
+        # Step 4: Filter df_improvement for BLDGNUM = '1' and store in array
         if 'BLDGNUM' in df_improvement.columns:
             df_improvement['BLDGNUM'] = df_improvement['BLDGNUM']
-            df_improvement = df_improvement[df_improvement['BLDGNUM'] == 1]  
+            df_improvement = df_improvement[df_improvement['BLDGNUM'] == 1]
             bldgnum_1_array = df_improvement.to_numpy()
             print(f"Rows after BLDGNUM filter: {len(df_improvement)}")
         else:
             print("Warning: 'BLDGNUM' column not found in improvement file")
             bldgnum_1_array = np.array([])
-            df_improvement = pd.DataFrame(columns=['PARCEL', 'EFFBLT', 'ARCSTYLE', 'ABSTRPRD','GARTYPE','FINBSMNT','BASEMENT'])
+            df_improvement = pd.DataFrame(columns=['PARCEL', 'EFFBLT', 'ARCSTYLE', 'ABSTRPRD', 'GARTYPE', 'FINBSMNT', 'BASEMENT'])
 
-        # Step 4: Categorize residential based on ABSTRPRD in df_improvement
+        # Step 5: Categorize residential based on ABSTRPRD in df_improvement
         if not df_improvement.empty:
             if 'ABSTRPRD' in df_improvement.columns:
                 df_improvement['USETYPE'] = df_improvement['ABSTRPRD'].apply(assign_usetype)
@@ -298,27 +311,37 @@ def process_data(file_paths, month_filters):
                 print(f"Rows after residential filter in df_improvement (based on ABSTRPRD): {len(df_improvement_residential)}")
             else:
                 print("Error: 'ABSTRPRD' column missing in df_improvement after renaming; cannot categorize residential")
-                df_improvement_residential = pd.DataFrame(columns=['PARCEL', 'EFFBLT', 'ARCSTYLE','GARTYPE','FINBSMNT','BASEMENT'])
+                df_improvement_residential = pd.DataFrame(columns=['PARCEL', 'EFFBLT', 'ARCSTYLE', 'GARTYPE', 'FINBSMNT', 'BASEMENT'])
         else:
             print("Warning: df_improvement is empty after BLDGNUM filter")
-            df_improvement_residential = pd.DataFrame(columns=['PARCEL', 'EFFBLT', 'ARCSTYLE','GARTYPE','FINBSMNT','BASEMENT'])
+            df_improvement_residential = pd.DataFrame(columns=['PARCEL', 'EFFBLT', 'ARCSTYLE', 'GARTYPE', 'FINBSMNT', 'BASEMENT'])
 
-        # Step 5: Merge df_sales with df_improvement_residential
+        # Step 6: Merge df_sales with df_improvement_residential
         print("Sample PARCELs in df_sales before merge:", df_sales['PARCEL'].head().tolist())
         print("Sample PARCELs in df_improvement_residential:", df_improvement_residential['PARCEL'].head().tolist())
-        
+
         # Perform the merge
-        df_sales = df_sales.merge(df_improvement_residential[['PARCEL', 'EFFBLT', 'ARCSTYLE','CONDITION','QUALITY','LIVEAREA','GARTYPE','FINBSMNT','BASEMENT']], 
+        df_sales = df_sales.merge(df_improvement_residential[['PARCEL', 'EFFBLT', 'ARCSTYLE', 'CONDITION', 'QUALITY', 'LIVEAREA', 'GARTYPE', 'FINBSMNT', 'BASEMENT']],
                                   on='PARCEL', how='left')
         print("df_sales head after initial merge with improvement:")
-        print(df_sales[['PARCEL', 'EFFBLT', 'ARCSTYLE','GARTYPE','FINBSMNT','BASEMENT']].head())
+        print(df_sales[['PARCEL', 'EFFBLT', 'ARCSTYLE', 'GARTYPE', 'FINBSMNT', 'BASEMENT']].head())
 
-        # Step 6: Rename ABSTRLND to ABSTRPRD in df_land if present
+        # Step 7: Rename ABSTRLND or SUBCLASS to ABSTRPRD in df_land
         if 'ABSTRLND' in df_land.columns:
             df_land.rename(columns={'ABSTRLND': 'ABSTRPRD'}, inplace=True)
             print("Renamed ABSTRLND to ABSTRPRD in df_land")
+        elif 'SUBCLASS' in df_land.columns:
+            df_land.rename(columns={'SUBCLASS': 'ABSTRPRD'}, inplace=True)
+            print("Renamed SUBCLASS to ABSTRPRD in df_land")
+        else:
+            print("Warning: Neither 'ABSTRLND' nor 'SUBCLASS' found in df_land")
 
-        # Step 7: Duplicate and mismatch removal
+        # Step 8: Rename SUBCLASS to ABSTRPRD in df_sales if necessary
+        if 'SUBCLASS' in df_sales.columns and 'ABSTRPRD' not in df_sales.columns:
+            df_sales.rename(columns={'SUBCLASS': 'ABSTRPRD'}, inplace=True)
+            print("Renamed SUBCLASS to ABSTRPRD in df_sales")
+
+        # Step 9: Duplicate and mismatch removal
         duplicates = df_land[df_land.duplicated('PARCEL', keep=False)]
         array1 = duplicates['PARCEL'].unique()
         df_sales = df_sales[~df_sales['PARCEL'].isin(array1)]
@@ -335,7 +358,7 @@ def process_data(file_paths, month_filters):
         print("df_sales head after merging LNDSIZE from df_land:")
         print(df_sales[['PARCEL', 'LNDSIZE']].head())
 
-        # Step 8: Merging and computations
+        # Step 10: Merging and computations
         df_current_value = df_current_value.merge(df_land[['PARCEL', 'ABSTRPRD']], on='PARCEL', how='left', suffixes=('', '_land'))
         df_current_value = df_current_value.merge(df_historical[['PARCEL', 'PREVTOT']], on='PARCEL', how='left', suffixes=('', '_hist'))
         df_current_value['CURRTOT'] = df_current_value.get('CURRTOT', 0).fillna(0)
@@ -351,7 +374,7 @@ def process_data(file_paths, month_filters):
             df_sales['CURRTOT'] / df_sales['TASP']
         ).round(2)
 
-        # Step 9: Assign USETYPE and initial filtering
+        # Step 11: Assign USETYPE and initial filtering
         if 'ABSTRPRD' not in df_sales.columns:
             print("Error: 'ABSTRPRD' column missing in df_sales")
             return pd.DataFrame(), df_current_value, bldgnum_1_array
@@ -362,10 +385,10 @@ def process_data(file_paths, month_filters):
         else:
             print("Warning: 'QUALIFIED' column not found in df_sales; skipping filter")
 
-        # Step 10: Reorder USETYPE
+        # Step 12: Reorder USETYPE
         df_sales = df_sales.sort_values(by='USETYPE', key=lambda x: x.map({'RESIDENTIAL': 0, 'COMMERCIAL': 1, 'VACANT LAND': 2}))
 
-        # Step 11: Calculate MONTHS
+        # Step 13: Calculate MONTHS
         if 'SYEAR' not in df_sales.columns:
             print("Error: 'SYEAR' column missing in df_sales")
             return pd.DataFrame(), df_current_value, bldgnum_1_array
@@ -376,7 +399,7 @@ def process_data(file_paths, month_filters):
         else:
             df_sales['MONTHS'] = (base_year - df_sales['SYEAR']) * 12
 
-        # Step 12: Filter by month_filters
+        # Step 14: Filter by month_filters
         filtered_data = pd.DataFrame()
         for usetype, max_months in month_filters.items():
             usetype_data = df_sales[df_sales['USETYPE'] == usetype]
@@ -385,7 +408,7 @@ def process_data(file_paths, month_filters):
                 filtered_data = pd.concat([filtered_data, usetype_data_filtered])
         df_sales = filtered_data
 
-        # Step 12.5: Calculate UnadjRatio = CURRTOT / NETPRICE
+        # Step 15: Calculate UnadjRatio = CURRTOT / NETPRICE
         if 'NETPRICE' in df_sales.columns and 'CURRTOT' in df_sales.columns:
             df_sales['UnadjRatio'] = np.where(
                 df_sales['NETPRICE'] == 0, 0,
@@ -395,15 +418,15 @@ def process_data(file_paths, month_filters):
             print("Warning: Cannot calculate UnadjRatio - 'NETPRICE' or 'CURRTOT' column missing")
             df_sales['UnadjRatio'] = np.nan
 
-        # Step 13: Ensure all required columns exist
-        required_columns = ['SYEAR', 'RATIO', 'CURRTOT', 'TASP', 'PCTCHANGE', 'USETYPE', 'MONTHS', 'EFFBLT', 'ARCSTYLE','CONDITION','QUALITY','LIVEAREA','UnadjRatio','GARTYPE','FINBSMNT','BASEMENT','LNDSIZE']
+        # Step 16: Ensure all required columns exist
+        required_columns = ['SYEAR', 'RATIO', 'CURRTOT', 'TASP', 'PCTCHANGE', 'USETYPE', 'MONTHS', 'EFFBLT', 'ARCSTYLE', 'CONDITION', 'QUALITY', 'LIVEAREA', 'UnadjRatio', 'GARTYPE', 'FINBSMNT', 'BASEMENT', 'LNDSIZE']
         for col in required_columns:
             if col not in df_sales.columns:
                 df_sales[col] = np.nan
 
-        # Step 14: Debugging output
+        # Step 17: Debugging output
         print("df_sales head after processing:")
-        print(df_sales[['PARCEL', 'USETYPE', 'EFFBLT', 'ARCSTYLE', 'CONDITION','QUALITY','LIVEAREA','RATIO','UnadjRatio','GARTYPE','FINBSMNT','BASEMENT','LNDSIZE']].head())
+        print(df_sales[['PARCEL', 'USETYPE', 'EFFBLT', 'ARCSTYLE', 'CONDITION', 'QUALITY', 'LIVEAREA', 'RATIO', 'UnadjRatio', 'GARTYPE', 'FINBSMNT', 'BASEMENT', 'LNDSIZE']].head())
         print(f"Rows in df_sales: {len(df_sales)}")
         print(f"Residential rows with EFFBLT: {df_sales[df_sales['USETYPE'] == 'RESIDENTIAL']['EFFBLT'].notna().sum()}")
         print(f"Residential rows with ARCSTYLE: {df_sales[df_sales['USETYPE'] == 'RESIDENTIAL']['ARCSTYLE'].notna().sum()}")

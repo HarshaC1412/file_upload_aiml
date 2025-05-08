@@ -116,129 +116,6 @@
 
         <!-- Tab Content -->
         <div class="tab-content" id="reportTabsContent">
-            <!-- Commercial Tab -->
-            {% if 'COMMERCIAL' in usetypes %}
-            <div class="tab-pane fade show active" id="commercial" role="tabpanel" aria-labelledby="commercial-tab">
-                <div class="accordion" id="commercialAccordion">
-                    <!-- Ratios Table Section -->
-                    <div class="accordion-item">
-                        <h2 class="accordion-header" id="commercialRatiosHeading">
-                            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#commercialRatiosCollapse" aria-expanded="true" aria-controls="commercialRatiosCollapse">
-                                <i class="bi bi-table me-2"></i> Sales Ratio Statistics
-                            </button>
-                        </h2>
-                        <div id="commercialRatiosCollapse" class="accordion-collapse collapse show" aria-labelledby="commercialRatiosHeading" data-bs-parent="#commercialAccordion">
-                            <div class="accordion-body">
-                                <div class="table-responsive">
-                                    <table class="table table-bordered table-hover">
-                                        <thead>
-                                            <tr>
-                                                <th>Year</th>
-                                                <th>N</th>
-                                                <th>Mean Ratio</th>
-                                                <th>Median Ratio</th>
-                                                <th>Weighted Mean</th>
-                                                <th>COD</th>
-                                                <th>PRD</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {% for row in table1_data['COMMERCIAL'] %}
-                                            <tr>
-                                                <td>{{ row['SYEAR'] }}</td>
-                                                <td>{{ row['N'] }}</td>
-                                                <td>{{ row['Mean Ratio'] }}</td>
-                                                <td>{{ row['Median Ratio'] }}</td>
-                                                <td>{{ row['Weighted Mean Ratio'] }}</td>
-                                                <td>{{ row['COD'] }}</td>
-                                                <td>{{ row['PRD'] }}</td>
-                                            </tr>
-                                            {% endfor %}
-                                            <tr class="total-row">
-                                                <td><strong>{{ table1_totals['COMMERCIAL']['SYEAR'] }}</strong></td>
-                                                <td><strong>{{ table1_totals['COMMERCIAL']['N'] }}</strong></td>
-                                                <td><strong>{{ table1_totals['COMMERCIAL']['Mean Ratio'] }}</strong></td>
-                                                <td><strong>{{ table1_totals['COMMERCIAL']['Median Ratio'] }}</strong></td>
-                                                <td><strong>{{ table1_totals['COMMERCIAL']['Weighted Mean Ratio'] }}</strong></td>
-                                                <td><strong>{{ table1_totals['COMMERCIAL']['COD'] }}</strong></td>
-                                                <td><strong>{{ table1_totals['COMMERCIAL']['PRD'] }}</strong></td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Market Value Changes Section -->
-                    <div class="accordion-item">
-                        <h2 class="accordion-header" id="commercialMarketValueHeading">
-                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#commercialMarketValueCollapse" aria-expanded="false" aria-controls="commercialMarketValueCollapse">
-                                <i class="bi bi-graph-up me-2"></i> Market Value Analysis
-                            </button>
-                        </h2>
-                        <div id="commercialMarketValueCollapse" class="accordion-collapse collapse" aria-labelledby="commercialMarketValueHeading" data-bs-parent="#commercialAccordion">
-                            <div class="accordion-body">
-                                <div class="table-responsive">
-                                    <table class="table table-bordered table-hover">
-                                        <thead>
-                                            <tr>
-                                                <th>Type</th>
-                                                <th>N</th>
-                                                <th>Mean</th>
-                                                <th>Median</th>
-                                                <th>Minimum</th>
-                                                <th>Maximum</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {% for row in combined_data['COMMERCIAL'] %}
-                                            <tr>
-                                                <td>{{ row['Type'] }}</td>
-                                                <td>{{ row['N'] if 'N' in row else row['count'] }}</td>
-                                                <td>{{ row['Mean'] if 'Mean' in row else row['mean'] }}</td>
-                                                <td>{{ row['Median'] if 'Median' in row else row['median'] }}</td>
-                                                <td>{{ row['Min'] if 'Min' in row else row['min'] }}</td>
-                                                <td>{{ row['Max'] if 'Max' in row else row['max'] }}</td>
-                                            </tr>
-                                            {% endfor %}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Scatter Plots Section -->
-                    <div class="accordion-item">
-                        <h2 class="accordion-header" id="commercialPlotsHeading">
-                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#commercialPlotsCollapse" aria-expanded="false" aria-controls="commercialPlotsCollapse">
-                                <i class="bi bi-bar-chart-line me-2"></i> Sales Ratio Trends
-                            </button>
-                        </h2>
-                        <div id="commercialPlotsCollapse" class="accordion-collapse collapse" aria-labelledby="commercialPlotsHeading" data-bs-parent="#commercialAccordion">
-                            <div class="accordion-body">
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <div class="plot-container">
-                                            <h5 class="section-title">Sales Ratio vs Months</h5>
-                                            <img src="{{ scatter_plots['COMMERCIAL'] }}" alt="Commercial Sales Ratio Trend" class="plot-image">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <div class="plot-container">
-                                            <h5 class="section-title">Unadjusted Ratio vs Months</h5>
-                                            <img src="{{ scatter_plots_unadjratio['COMMERCIAL'] }}" alt="Commercial Unadjusted Ratio Trend" class="plot-image">
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-
             <!-- Residential Tab -->
             {% if 'RESIDENTIAL' in usetypes %}
             <div class="tab-pane fade {% if 'COMMERCIAL' not in usetypes %}show active{% endif %}" id="residential" role="tabpanel" aria-labelledby="residential-tab">
@@ -869,6 +746,129 @@
                                         <div class="plot-container">
                                             <h5 class="section-title">Unadjusted Ratio vs Months</h5>
                                             <img src="{{ scatter_plots_unadjratio['RESIDENTIAL'] }}" alt="Residential Unadjusted Ratio Trend" class="plot-image">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Commercial Tab -->
+            {% if 'COMMERCIAL' in usetypes %}
+            <div class="tab-pane fade show active" id="commercial" role="tabpanel" aria-labelledby="commercial-tab">
+                <div class="accordion" id="commercialAccordion">
+                    <!-- Ratios Table Section -->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="commercialRatiosHeading">
+                            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#commercialRatiosCollapse" aria-expanded="true" aria-controls="commercialRatiosCollapse">
+                                <i class="bi bi-table me-2"></i> Sales Ratio Statistics
+                            </button>
+                        </h2>
+                        <div id="commercialRatiosCollapse" class="accordion-collapse collapse show" aria-labelledby="commercialRatiosHeading" data-bs-parent="#commercialAccordion">
+                            <div class="accordion-body">
+                                <div class="table-responsive">
+                                    <table class="table table-bordered table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Year</th>
+                                                <th>N</th>
+                                                <th>Mean Ratio</th>
+                                                <th>Median Ratio</th>
+                                                <th>Weighted Mean</th>
+                                                <th>COD</th>
+                                                <th>PRD</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for row in table1_data['COMMERCIAL'] %}
+                                            <tr>
+                                                <td>{{ row['SYEAR'] }}</td>
+                                                <td>{{ row['N'] }}</td>
+                                                <td>{{ row['Mean Ratio'] }}</td>
+                                                <td>{{ row['Median Ratio'] }}</td>
+                                                <td>{{ row['Weighted Mean Ratio'] }}</td>
+                                                <td>{{ row['COD'] }}</td>
+                                                <td>{{ row['PRD'] }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                            <tr class="total-row">
+                                                <td><strong>{{ table1_totals['COMMERCIAL']['SYEAR'] }}</strong></td>
+                                                <td><strong>{{ table1_totals['COMMERCIAL']['N'] }}</strong></td>
+                                                <td><strong>{{ table1_totals['COMMERCIAL']['Mean Ratio'] }}</strong></td>
+                                                <td><strong>{{ table1_totals['COMMERCIAL']['Median Ratio'] }}</strong></td>
+                                                <td><strong>{{ table1_totals['COMMERCIAL']['Weighted Mean Ratio'] }}</strong></td>
+                                                <td><strong>{{ table1_totals['COMMERCIAL']['COD'] }}</strong></td>
+                                                <td><strong>{{ table1_totals['COMMERCIAL']['PRD'] }}</strong></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Market Value Changes Section -->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="commercialMarketValueHeading">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#commercialMarketValueCollapse" aria-expanded="false" aria-controls="commercialMarketValueCollapse">
+                                <i class="bi bi-graph-up me-2"></i> Market Value Analysis
+                            </button>
+                        </h2>
+                        <div id="commercialMarketValueCollapse" class="accordion-collapse collapse" aria-labelledby="commercialMarketValueHeading" data-bs-parent="#commercialAccordion">
+                            <div class="accordion-body">
+                                <div class="table-responsive">
+                                    <table class="table table-bordered table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Type</th>
+                                                <th>N</th>
+                                                <th>Mean</th>
+                                                <th>Median</th>
+                                                <th>Minimum</th>
+                                                <th>Maximum</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for row in combined_data['COMMERCIAL'] %}
+                                            <tr>
+                                                <td>{{ row['Type'] }}</td>
+                                                <td>{{ row['N'] if 'N' in row else row['count'] }}</td>
+                                                <td>{{ row['Mean'] if 'Mean' in row else row['mean'] }}</td>
+                                                <td>{{ row['Median'] if 'Median' in row else row['median'] }}</td>
+                                                <td>{{ row['Min'] if 'Min' in row else row['min'] }}</td>
+                                                <td>{{ row['Max'] if 'Max' in row else row['max'] }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Scatter Plots Section -->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="commercialPlotsHeading">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#commercialPlotsCollapse" aria-expanded="false" aria-controls="commercialPlotsCollapse">
+                                <i class="bi bi-bar-chart-line me-2"></i> Sales Ratio Trends
+                            </button>
+                        </h2>
+                        <div id="commercialPlotsCollapse" class="accordion-collapse collapse" aria-labelledby="commercialPlotsHeading" data-bs-parent="#commercialAccordion">
+                            <div class="accordion-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="plot-container">
+                                            <h5 class="section-title">Sales Ratio vs Months</h5>
+                                            <img src="{{ scatter_plots['COMMERCIAL'] }}" alt="Commercial Sales Ratio Trend" class="plot-image">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="plot-container">
+                                            <h5 class="section-title">Unadjusted Ratio vs Months</h5>
+                                            <img src="{{ scatter_plots_unadjratio['COMMERCIAL'] }}" alt="Commercial Unadjusted Ratio Trend" class="plot-image">
                                         </div>
                                     </div>
                                 </div>
